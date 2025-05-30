@@ -1,0 +1,95 @@
+---
+export interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Integrator - Manage, import, and compare your Postman collections" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+
+    <!-- Monaco Editor for JSON viewing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/loader.min.js"></script>
+    
+    <style>
+      /* Monaco editor container */
+      .editor-container {
+        height: 500px;
+        border: 1px solid #ddd;
+        margin-bottom: 20px;
+      }
+
+      /* JSON formatting styles */
+      .json-formatter {
+        font-family: monospace;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      
+      .json-formatter .key {
+        color: #881391;
+      }
+      
+      .json-formatter .string {
+        color: #c41a16;
+      }
+      
+      .json-formatter .number {
+        color: #1c00cf;
+      }
+      
+      .json-formatter .boolean {
+        color: #0000ff;
+      }
+      
+      .json-formatter .null {
+        color: #808080;
+      }
+
+      /* Diff highlighting */
+      .diff-added {
+        background-color: #e6ffed;
+        color: #22863a;
+      }
+      
+      .diff-deleted {
+        background-color: #ffeef0;
+        color: #cb2431;
+      }
+      
+      .diff-modified {
+        background-color: #e1effe;
+        color: #2188ff;
+      }
+
+      /* Modal backdrop blur */
+      .modal-backdrop {
+        backdrop-filter: blur(2px);
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen" style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;">
+    <slot />
+    
+    <script>
+      // Initialize Monaco Editor globally
+      require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs' }});
+      
+      // Suppress Tailwind production warning
+      if (console && console.warn) {
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+          if (args[0] && args[0].includes('cdn.tailwindcss.com')) return;
+          originalWarn.apply(console, args);
+        };
+      }
+    </script>
+  </body>
+</html>
