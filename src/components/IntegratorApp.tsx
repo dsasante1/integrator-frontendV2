@@ -108,8 +108,7 @@ const CollectionModal: React.FC<{
   if (!show) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 modal-backdrop flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 modal-backdrop flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div 
@@ -207,10 +206,27 @@ const CollectionModal: React.FC<{
   );
 };
 
+const TAB_LIST = [
+  { key: 'collections', label: 'Collections' },
+  { key: 'import', label: 'Import' },
+  { key: 'compare', label: 'Compare' },
+  { key: 'settings', label: 'Settings' },
+];
+
+// Utility function for formatting dates
+function formatDate(dateString?: string) {
+  if (!dateString) return 'N/A';
+  try {
+    return new Date(dateString).toLocaleString();
+  } catch {
+    return 'N/A';
+  }
+}
+
 // Main App Component
 const IntegratorApp: React.FC = () => {
   // State
-  const [activeTab, setActiveTab] = useState('collections');
+  const [activeTab, setActiveTab] = useState<'collections' | 'import' | 'compare' | 'settings'>('collections');
   const [collections, setCollections] = useState<Collection[]>([]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -316,9 +332,15 @@ const IntegratorApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="container mx-auto px-4 py-8">
+      {/* Header */}
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">integrator*</h1>
+        <p className="text-gray-600">Manage, import, and compare your Postman collections</p>
+      </header>
+
       {/* Notifications */}
-      <div className="fixed top-4 right-4 z-50 space-y-4">
+      <div className="fixed top-4 right-4 z-50 space-y-2">
         {notifications.map(notification => (
           <NotificationItem
             key={notification.id}
@@ -328,155 +350,328 @@ const IntegratorApp: React.FC = () => {
         ))}
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            {['collections', 'snapshots', 'api-keys'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`${
-                  activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </nav>
-        </div>
+      {/* Tabs Navigation */}
+      <nav className="mb-8">
+        <ul className="flex gap-2">
+          {TAB_LIST.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`$ {
+                activeTab === tab.key
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm rounded-t`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </ul>
+      </nav>
 
-        {/* Content Area */}
-        <div className="mt-6">
-          {activeTab === 'collections' && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-medium text-gray-900">Collections</h2>
-                <div className="flex space-x-4">
-                  <input
-                    type="file"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    id="file-upload"
-                    accept=".json"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+      {/* Main Content */}
+      <div>
+        {/* Collections Tab */}
+        {activeTab === 'collections' && (
+          <section>
+            <div className="bg-white rounded-lg shadow p-8">
+              <h2 className="text-xl font-semibold mb-6">Collection Snapshots</h2>
+
+              {/* Loading State */}
+              {isLoading && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading collections...</p>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {!isLoading && collections.length === 0 && (
+                <div className="text-center py-8">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No collections found</h3>
+                  <p className="mt-1 text-sm text-gray-500">Use the Import tab to fetch collections.</p>
+                  <div className="mt-6">
+                    <button onClick={() => setActiveTab('import')} className="btn btn-primary">
+                      Import Collections
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Collections Table */}
+              {!isLoading && collections.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Collection</th>
+                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Snapshots</th>
+                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">First Snapshot</th>
+                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Latest Snapshot</th>
+                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {collections.map(collection => (
+                        <tr key={collection.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="font-medium text-gray-900">{collection.name}</div>
+                            <div className="text-xs text-gray-400">{collection.id}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {collection.snapshot_count}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.first_snapshot)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.last_snapshot)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => handleCollectionSelect(collection)}
+                              className="text-blue-600 hover:text-blue-900 font-medium hover:underline"
+                            >
+                              View Snapshots
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+        {/* Import Tab */}
+        {activeTab === 'import' && (
+          <section>
+            <div className="bg-white rounded-lg shadow p-8">
+              <h2 className="text-xl font-semibold mb-6">Import Postman Collection</h2>
+
+              {/* File Upload Section */}
+              <div className="mb-8">
+                <p className="text-gray-600 mb-4">Upload a Postman collection JSON file to import it into the system.</p>
+                <form onSubmit={e => { e.preventDefault(); handleUpload(); }} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Collection File</label>
+                    <input
+                      type="file"
+                      onChange={handleFileSelect}
+                      accept=".json"
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                  </div>
+                  {selectedFile && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-600">Selected file: <span className="font-medium">{selectedFile.name}</span></p>
+                    </div>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={!selectedFile || isLoading}
+                      className="btn btn-primary flex items-center"
+                    >
+                      {isLoading && <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>}
+                      <span>{isLoading ? 'Importing...' : 'Import Collection'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Import from Postman API */}
+              <div className="border-t border-gray-200 pt-8 mt-8">
+                <h2 className="text-xl font-semibold mb-6">Available Collections</h2>
+                <p className="text-gray-600 mb-4">Browse and import collections from your Postman API keys.</p>
+
+                {/* API Key Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select API Key</label>
+                  <select
+                    value={apiKeys.find(k => k.default)?.name || ''}
+                    onChange={e => {/* TODO: handle API key change */}}
+                    className="form-input"
                   >
-                    <Upload className="h-5 w-5 mr-2" />
-                    Select File
-                  </label>
-                  <button
-                    onClick={handleUpload}
-                    disabled={!selectedFile || isLoading}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                    ) : (
-                      <Upload className="h-5 w-5 mr-2" />
-                    )}
-                    Upload
-                  </button>
+                    <option value="">Choose an API key</option>
+                    {apiKeys.map(key => (
+                      <option key={key.name} value={key.name}>
+                        {key.name}{key.default ? ' (Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Collections Loading */}
+                {/* TODO: Add isFetchingCollections state */}
+                {/* <div className="text-center py-8">...</div> */}
+
+                {/* No API Key Selected */}
+                {/* TODO: Add selectedKeyName state */}
+                {/* <div className="text-center py-8">...</div> */}
+
+                {/* Collections Grid */}
+                {/* TODO: Add postmanCollections, selectedCollectionIds, and related logic */}
+                {/* <div>...</div> */}
+
+                {/* No Collections Found */}
+                {/* <div className="text-center py-8">...</div> */}
+              </div>
+
+              {/* Import Status Messages */}
+              {/* TODO: Add importStatus, importError, and related logic */}
+            </div>
+          </section>
+        )}
+        {activeTab === 'compare' && (
+          <div className="bg-white shadow rounded-lg p-6">
+            {/* Compare tab content will go here */}
+          </div>
+        )}
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <section>
+            <div className="bg-white rounded-lg shadow p-8">
+              <h2 className="text-xl font-semibold mb-6">API Keys Management</h2>
+
+              {/* Existing API Keys */}
+              <div className="mb-8">
+                <h3 className="text-lg font-medium mb-3">Your Postman API Keys</h3>
+                {/* Empty State */}
+                {apiKeys.length === 0 && (
+                  <div className="text-center py-8 border rounded-md border-gray-200">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No API keys configured</h3>
+                    <p className="mt-1 text-sm text-gray-500">Add a key below to get started.</p>
+                  </div>
+                )}
+                {/* API Keys Table */}
+                {apiKeys.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Key</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {apiKeys.map(key => (
+                          <tr key={key.name} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="font-medium text-gray-900">{key.name}</div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="text-gray-500 font-mono text-xs">{key.key.substring(0, 12) + '...'}</div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {key.default && (
+                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Default</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium space-x-2">
+                              {!key.default && (
+                                <button
+                                  onClick={() => {/* TODO: set default key */}}
+                                  className="text-blue-600 hover:text-blue-900 hover:underline"
+                                >
+                                  Set Default
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {/* TODO: delete key */}}
+                                className="text-red-600 hover:text-red-900 hover:underline"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Add New API Key */}
+              <div className="border-t border-gray-200 pt-8">
+                <h3 className="text-lg font-medium mb-3">Add New API Key</h3>
+                <form onSubmit={e => { e.preventDefault(); /* TODO: add API key */ }} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label htmlFor="key-name" className="block text-sm font-medium text-gray-700 mb-1">Key Name</label>
+                      <input
+                        type="text"
+                        id="key-name"
+                        // value and onChange for newKey.name
+                        placeholder="e.g., Work, Personal"
+                        className="form-input"
+                        required
+                      />
+                      <p className="mt-1 text-xs text-gray-500">A name to identify this API key</p>
+                    </div>
+                    <div>
+                      <label htmlFor="api-key" className="block text-sm font-medium text-gray-700 mb-1">Postman API Key</label>
+                      <input
+                        type="password"
+                        id="api-key"
+                        // value and onChange for newKey.key
+                        placeholder="PMAK-xxxx..."
+                        className="form-input"
+                        required
+                      />
+                      <p className="mt-1 text-xs text-gray-500">Your Postman API key from your Postman account</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="set-default"
+                      // checked and onChange for newKey.setDefault
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="set-default" className="ml-2 block text-sm text-gray-700">Set as default key</label>
+                  </div>
+                  <div>
+                    <button
+                      type="submit"
+                      // disabled logic for isAddingKey, newKey.name, newKey.key
+                      className="btn btn-primary flex items-center"
+                    >
+                      {/* isAddingKey spinner */}
+                      <span>Add API Key</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Instructions */}
+              <div className="mt-8 border-t border-gray-200 pt-8">
+                <h3 className="text-lg font-medium mb-3">How to Get Your Postman API Key</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <ol className="list-decimal pl-5 space-y-2 text-sm text-gray-700">
+                    <li>Log in to your <a href="https://www.postman.com" target="_blank" className="text-blue-600 hover:text-blue-800 underline">Postman account</a></li>
+                    <li>Click on your profile icon in the top-right corner</li>
+                    <li>Select <strong>Settings</strong> from the dropdown menu</li>
+                    <li>Go to the <strong>API Keys</strong> tab</li>
+                    <li>Click <strong>Generate API Key</strong> and provide a name</li>
+                    <li>Copy the generated key and paste it above</li>
+                  </ol>
+                  <p className="mt-4 text-sm text-gray-600">Your API key allows this application to access your Postman collections. The key is stored locally on your machine.</p>
                 </div>
               </div>
-
-              {/* Collections List */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Snapshots</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Snapshot</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Snapshot</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {collections.map(collection => (
-                      <tr key={collection.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{collection.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{collection.snapshot_count}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(collection.first_snapshot).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(collection.last_snapshot).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => handleCollectionSelect(collection)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            View Snapshots
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
-          )}
-
-          {activeTab === 'api-keys' && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-medium text-gray-900">API Keys</h2>
-                <button
-                  onClick={handleApiKeyAdd}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  <Key className="h-5 w-5 mr-2" />
-                  Add API Key
-                </button>
-              </div>
-
-              {/* API Keys List */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Default</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {apiKeys.map(apiKey => (
-                      <tr key={apiKey.key} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{apiKey.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                          {apiKey.key.substring(0, 16)}...
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {apiKey.default ? 'Yes' : 'No'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => handleApiKeyDelete(apiKey.key)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+          </section>
+        )}
       </div>
 
-      {/* Collection Modal */}
+      {/* Collection Snapshots Modal */}
       <CollectionModal
         show={showCollectionModal}
         collection={selectedCollection}

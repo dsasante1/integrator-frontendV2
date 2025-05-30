@@ -6,6 +6,6 @@ export default defineConfig({
   integrations: [react(), tailwind()],
   output: 'server',
   server: {
-    port: 3000
+    port: 4321
   }
 });
