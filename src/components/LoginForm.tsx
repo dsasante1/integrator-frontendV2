@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import axios, { AxiosError } from 'axios';
 
@@ -9,6 +10,7 @@ interface LoginFormProps {
 
 const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { login, signup } = useAuth();
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,8 +26,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }: { onSuccess?: () => 
     try {
       if (isLogin) {
         await login(email, password);
+        navigate('/app');
       } else {
         await signup(email, password);
+        navigate('/app');
       }
       onSuccess?.();
     } catch (error) {
