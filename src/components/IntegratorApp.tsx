@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useEffect } from 'react';
 import { X, CheckCircle, XCircle, Info, AlertTriangle, Upload, Key, Settings, BarChart3, Loader2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { collectionService, apiKeyService } from '../services/api';
+import LoginForm from './LoginForm';
 
 // Types
 interface Collection {
@@ -45,9 +49,9 @@ interface Notification {
 
 // Notification Component
 const NotificationItem: React.FC<{ notification: Notification; onClose: () => void }> = ({ 
-  notification, 
+  notification,
   onClose 
-}) => {
+}: { notification: Notification; onClose: () => void }) => {
   const icons = {
     success: CheckCircle,
     error: XCircle,
@@ -104,7 +108,25 @@ const CollectionModal: React.FC<{
   onViewSnapshot: (id: number) => void;
   onSelectForCompare: (snapshot: Snapshot) => void;
   selectedSnapshots: Snapshot[];
-}> = ({ show, collection, snapshots, isLoading, onClose, onViewSnapshot, onSelectForCompare, selectedSnapshots }) => {
+}> = ({ 
+  show, 
+  collection, 
+  snapshots, 
+  isLoading, 
+  onClose, 
+  onViewSnapshot, 
+  onSelectForCompare, 
+  selectedSnapshots 
+}: {
+  show: boolean;
+  collection: Collection | null;
+  snapshots: Snapshot[];
+  isLoading: boolean;
+  onClose: () => void;
+  onViewSnapshot: (id: number) => void;
+  onSelectForCompare: (snapshot: Snapshot) => void;
+  selectedSnapshots: Snapshot[];
+}) => {
   if (!show) return null;
 
   return (
@@ -225,19 +247,40 @@ function formatDate(dateString?: string) {
 
 // Main App Component
 const IntegratorApp: React.FC = () => {
+  const { isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  
   // State
-  const [activeTab, setActiveTab] = useState<'collections' | 'import' | 'compare' | 'settings'>('collections');
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [selectedSnapshots, setSelectedSnapshots] = useState<(Snapshot & { collectionName: string })[]>([]);
-  const [compareResults, setCompareResults] = useState<CompareResult[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showCollectionModal, setShowCollectionModal] = useState(false);
-  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
-  const [modalSnapshots, setModalSnapshots] = useState<Snapshot[]>([]);
+  const [activeTab, setActiveTab] = React.useState<'collections' | 'import' | 'compare' | 'settings'>('collections');
+  const [collections, setCollections] = React.useState<Collection[]>([]);
+  const [snapshots, setSnapshots] = React.useState<Snapshot[]>([]);
+  const [apiKeys, setApiKeys] = React.useState<ApiKey[]>([]);
+  const [selectedSnapshots, setSelectedSnapshots] = React.useState<(Snapshot & { collectionName: string })[]>([]);
+  const [compareResults, setCompareResults] = React.useState<CompareResult[]>([]);
+  const [notifications, setNotifications] = React.useState<Notification[]>([]);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [showCollectionModal, setShowCollectionModal] = React.useState(false);
+  const [selectedCollection, setSelectedCollection] = React.useState<Collection | null>(null);
+  const [modalSnapshots, setModalSnapshots] = React.useState<Snapshot[]>([]);
+
+  // Fetch collections on mount and when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCollections();
+    }
+  }, [isAuthenticated]);
+
+  const fetchCollections = async () => {
+    setIsLoading(true);
+    try {
+      const data = await collectionService.getCollections();
+      setCollections(data);
+    } catch (error) {
+      addNotification('error', 'Failed to fetch collections');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Add notification
   const addNotification = (type: Notification['type'], message: string) => {
@@ -271,12 +314,21 @@ const IntegratorApp: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: Implement actual file upload logic
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
-      addNotification('success', 'File uploaded successfully');
-      setSelectedFile(null);
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const content = JSON.parse(e.target?.result as string);
+          const response = await collectionService.storeCollection(content.info._postman_id, content.info.name);
+          addNotification('success', 'Collection imported successfully');
+          setSelectedFile(null);
+          fetchCollections(); // Refresh collections list
+        } catch (error) {
+          addNotification('error', 'Failed to import collection');
+        }
+      };
+      reader.readAsText(selectedFile);
     } catch (error) {
-      addNotification('error', 'Failed to upload file');
+      addNotification('error', 'Failed to process file');
     } finally {
       setIsLoading(false);
     }
@@ -288,9 +340,8 @@ const IntegratorApp: React.FC = () => {
     setShowCollectionModal(true);
     setIsLoading(true);
     try {
-      // TODO: Implement actual API call to fetch snapshots
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
-      setModalSnapshots([]); // Replace with actual API response
+      const data = await collectionService.getCollectionSnapshots(collection.id);
+      setModalSnapshots(data);
     } catch (error) {
       addNotification('error', 'Failed to load snapshots');
     } finally {
@@ -299,13 +350,20 @@ const IntegratorApp: React.FC = () => {
   };
 
   // Handle snapshot view
-  const handleViewSnapshot = (snapshotId: number) => {
-    // TODO: Implement snapshot view logic
-    addNotification('info', `Viewing snapshot ${snapshotId}`);
+  const handleViewSnapshot = async (snapshotId: number) => {
+    if (!selectedCollection) return;
+    
+    try {
+      const data = await collectionService.getCollectionDetails(selectedCollection.id);
+      addNotification('info', `Viewing snapshot ${snapshotId}`);
+      // TODO: Implement snapshot view UI
+    } catch (error) {
+      addNotification('error', 'Failed to load snapshot details');
+    }
   };
 
   // Handle snapshot selection for comparison
-  const handleSelectForCompare = (snapshot: Snapshot) => {
+  const handleSelectForCompare = async (snapshot: Snapshot) => {
     if (selectedSnapshots.length >= 2) {
       addNotification('warning', 'You can only compare two snapshots at a time');
       return;
@@ -315,15 +373,26 @@ const IntegratorApp: React.FC = () => {
     setSelectedSnapshots(newSelected);
 
     if (newSelected.length === 2) {
-      // TODO: Implement comparison logic
-      addNotification('info', 'Comparing snapshots...');
+      try {
+        const data = await collectionService.compareSnapshots(selectedCollection?.id || '');
+        setCompareResults(data);
+        addNotification('success', 'Comparison completed');
+      } catch (error) {
+        addNotification('error', 'Failed to compare snapshots');
+      }
     }
   };
 
   // Handle API key management
-  const handleApiKeyAdd = () => {
-    // TODO: Implement API key addition logic
-    addNotification('info', 'Adding new API key...');
+  const handleApiKeyAdd = async (apiKey: string) => {
+    try {
+      await apiKeyService.storeApiKey(apiKey);
+      addNotification('success', 'API key added successfully');
+      // Refresh API keys list
+      // TODO: Implement API key fetching
+    } catch (error) {
+      addNotification('error', 'Failed to add API key');
+    }
   };
 
   const handleApiKeyDelete = (key: string) => {
@@ -331,12 +400,36 @@ const IntegratorApp: React.FC = () => {
     addNotification('info', 'Deleting API key...');
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <LoginForm />
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">integrator*</h1>
-        <p className="text-gray-600">Manage, import, and compare your Postman collections</p>
+      <header className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">integrator*</h1>
+          <p className="text-gray-600">Manage, import, and compare your Postman collections</p>
+        </div>
+        <button
+          onClick={logout}
+          className="ml-auto bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200"
+        >
+          Logout
+        </button>
       </header>
 
       {/* Notifications */}

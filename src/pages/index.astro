@@ -1,8 +1,12 @@
 ---
 import Layout from '../layout/Layout.astro';
-import IntegratorApp from '../components/IntegratorApp';
+import App from '../App';
 ---
 
-<Layout title="integrator*">
-  <IntegratorApp client:load />
+<Layout title="Integrator">
+  <App client:only="react" />
 </Layout>
+
+<script>
+  import '../main';
+</script>
