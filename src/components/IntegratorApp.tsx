@@ -8,10 +8,10 @@ import LoginForm from './LoginForm';
 // Types
 interface Collection {
   id: string;
+  user_id: string;
   name: string;
-  snapshot_count: number;
-  first_snapshot: string;
-  last_snapshot: string;
+  first_seen: string;
+  last_seen: string;
 }
 
 interface Snapshot {
@@ -273,7 +273,7 @@ const IntegratorApp: React.FC = () => {
   const fetchCollections = async () => {
     setIsLoading(true);
     try {
-      const data = await collectionService.getCollections();
+      const data = await collectionService.getUserCollections();
       setCollections(data);
     } catch (error) {
       addNotification('error', 'Failed to fetch collections');
@@ -321,7 +321,14 @@ const IntegratorApp: React.FC = () => {
           const response = await collectionService.storeCollection(content.info._postman_id, content.info.name);
           addNotification('success', 'Collection imported successfully');
           setSelectedFile(null);
-          fetchCollections(); // Refresh collections list
+          // Refresh collections list
+          setCollections(prev => [...prev, {
+            id: content.info._postman_id,
+            name: content.info.name,
+            user_id: '',  // This will be set by the server
+            first_seen: new Date().toISOString(),
+            last_seen: new Date().toISOString()
+          }]);
         } catch (error) {
           addNotification('error', 'Failed to import collection');
         }
@@ -335,18 +342,10 @@ const IntegratorApp: React.FC = () => {
   };
 
   // Handle collection selection
-  const handleCollectionSelect = async (collection: Collection) => {
+  const handleCollectionSelect = (collection: Collection) => {
     setSelectedCollection(collection);
     setShowCollectionModal(true);
-    setIsLoading(true);
-    try {
-      const data = await collectionService.getCollectionSnapshots(collection.id);
-      setModalSnapshots(data);
-    } catch (error) {
-      addNotification('error', 'Failed to load snapshots');
-    } finally {
-      setIsLoading(false);
-    }
+    setModalSnapshots([]); // Reset snapshots since we're not fetching them anymore
   };
 
   // Handle snapshot view
@@ -524,9 +523,8 @@ const IntegratorApp: React.FC = () => {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Collection</th>
-                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Snapshots</th>
-                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">First Snapshot</th>
-                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Latest Snapshot</th>
+                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">First Seen</th>
+                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Last Seen</th>
                         <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
@@ -537,13 +535,8 @@ const IntegratorApp: React.FC = () => {
                             <div className="font-medium text-gray-900">{collection.name}</div>
                             <div className="text-xs text-gray-400">{collection.id}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                              {collection.snapshot_count}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.first_snapshot)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.last_snapshot)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.first_seen)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.last_seen)}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <button
                               onClick={() => handleCollectionSelect(collection)}

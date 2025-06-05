@@ -98,6 +98,11 @@ export const collectionService = {
     return response.data;
   },
 
+  getUserCollections: async () => {
+    const response = await api.get('/collections/user');
+    return response.data;
+  },
+
   storeCollection: async (collectionId: string, name: string) => {
     const response = await api.post('/collections/store', { collection_id: collectionId, name });
     return response.data;
