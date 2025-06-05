@@ -16,13 +16,13 @@ const HomePage: React.FC = () => {
                 href="/app" 
                 className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
               >
-                Login
+                Sign In
               </a>
               <a 
-                href="/app" 
+                href="/app?mode=signup" 
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out"
               >
-                Sign Up
+                Create Account
               </a>
             </div>
           </div>

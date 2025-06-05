@@ -18,21 +18,3 @@ import HomePage from '../components/HomePage';
 <style is:global>
   @import '../styles/global.css';
 </style>
-
-<script>
-  // Prevent default navigation and handle it through React Router
-  document.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    const anchor = target.closest('a');
-    if (anchor && anchor.href && anchor.href.startsWith(window.location.origin)) {
-      e.preventDefault();
-      window.history.pushState({}, '', anchor.href);
-    }
-  });
-
-  // Handle browser back/forward buttons
-  window.addEventListener('popstate', () => {
-    // This will trigger React Router to handle the navigation
-    window.dispatchEvent(new Event('popstate'));
-  });
-</script>

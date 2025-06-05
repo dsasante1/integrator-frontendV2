@@ -1,6 +1,5 @@
 import * as React from 'react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import axios, { AxiosError } from 'axios';
 
@@ -10,13 +9,19 @@ interface LoginFormProps {
 
 const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { login, signup } = useAuth();
-  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    // Check URL for mode parameter
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    setIsLogin(mode !== 'signup');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,10 +31,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }: { onSuccess?: () => 
     try {
       if (isLogin) {
         await login(email, password);
-        navigate('/app');
+        window.location.href = '/app';
       } else {
         await signup(email, password);
-        navigate('/app');
+        window.location.href = '/app';
       }
       onSuccess?.();
     } catch (error) {
