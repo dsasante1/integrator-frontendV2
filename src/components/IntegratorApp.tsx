@@ -389,16 +389,39 @@ const IntegratorApp: React.FC = () => {
       await apiKeyService.storeApiKey(apiKey);
       addNotification('success', 'API key added successfully');
       // Refresh API keys list
-      // TODO: Implement API key fetching
+      const keys = await apiKeyService.getApiKeys();
+      setApiKeys(keys);
     } catch (error) {
       addNotification('error', 'Failed to add API key');
     }
   };
 
-  const handleApiKeyDelete = (key: string) => {
-    // TODO: Implement API key deletion logic
-    addNotification('info', 'Deleting API key...');
+  const handleApiKeyDelete = async (id: string) => {
+    try {
+      await apiKeyService.deleteApiKey(id);
+      addNotification('success', 'API key deleted successfully');
+      // Refresh API keys list
+      const keys = await apiKeyService.getApiKeys();
+      setApiKeys(keys);
+    } catch (error) {
+      addNotification('error', 'Failed to delete API key');
+    }
   };
+
+  // Fetch API keys on mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      const fetchApiKeys = async () => {
+        try {
+          const keys = await apiKeyService.getApiKeys();
+          setApiKeys(keys);
+        } catch (error) {
+          addNotification('error', 'Failed to fetch API keys');
+        }
+      };
+      fetchApiKeys();
+    }
+  }, [isAuthenticated]);
 
   if (authLoading) {
     return (
@@ -678,7 +701,7 @@ const IntegratorApp: React.FC = () => {
                                 </button>
                               )}
                               <button
-                                onClick={() => {/* TODO: delete key */}}
+                                onClick={() => handleApiKeyDelete(key.name)}
                                 className="text-red-600 hover:text-red-900 hover:underline"
                               >
                                 Delete

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosError, AxiosResponse } from 'axios';
 
 const BASE_URL = 'http://localhost:8080/integrator/api/v1';
 
@@ -8,6 +9,9 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Add retry configuration
+  retry: 3,
+  retryDelay: (retryCount: number) => retryCount * 1000,
 });
 
 // Add request interceptor to add auth token
@@ -18,6 +22,37 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config;
+    
+    // Handle 401 Unauthorized errors
+    if (error.response?.status === 401) {
+      localStorage.removeItem('user_auth_token');
+      window.location.href = '/';
+      return Promise.reject(error);
+    }
+
+    // Handle 429 Too Many Requests
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      await new Promise(resolve => setTimeout(resolve, (parseInt(retryAfter) || 60) * 1000));
+      return api(originalRequest!);
+    }
+
+    // Handle network errors
+    if (!error.response) {
+      return Promise.reject(new Error('Network error. Please check your connection.'));
+    }
+
+    // Handle other errors
+    const errorMessage = error.response.data?.message || error.message || 'An error occurred';
+    return Promise.reject(new Error(errorMessage));
+  }
+);
 
 // Auth services
 export const authService = {
@@ -42,6 +77,16 @@ export const authService = {
 export const apiKeyService = {
   storeApiKey: async (apiKey: string) => {
     const response = await api.post('/api-key', { api_key: apiKey });
+    return response.data;
+  },
+
+  getApiKeys: async () => {
+    const response = await api.get('/keys/api-keys');
+    return response.data;
+  },
+
+  deleteApiKey: async (id: string) => {
+    const response = await api.delete(`/keys/api-key/${id}`);
     return response.data;
   },
 };

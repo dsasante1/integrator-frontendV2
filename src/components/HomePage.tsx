@@ -78,7 +78,10 @@ const HomePage: React.FC = () => {
             >
               &times;
             </button>
-            <LoginForm onSuccess={() => setShowLogin(false)} />
+            <LoginForm onSuccess={() => {
+              setShowLogin(false);
+              window.location.href = '/app';
+            }} />
           </div>
         </div>
       )}
@@ -94,7 +97,10 @@ const HomePage: React.FC = () => {
             >
               &times;
             </button>
-            <LoginForm onSuccess={() => setShowSignup(false)} />
+            <LoginForm onSuccess={() => {
+              setShowSignup(false);
+              window.location.href = '/app';
+            }} />
           </div>
         </div>
       )}

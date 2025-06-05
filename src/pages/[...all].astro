@@ -1,0 +1,28 @@
+---
+import { defineComponent } from 'react';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Integrator</title>
+  </head>
+  <body>
+    <div id="app" class="min-h-screen"></div>
+  </body>
+</html>
+
+<script>
+  import App from '../App';
+  import { createRoot } from 'react-dom/client';
+  import '../styles/global.css';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const app = document.getElementById('app');
+    if (app) {
+      const root = createRoot(app);
+      root.render(App());
+    }
+  });
+</script> 

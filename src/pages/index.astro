@@ -1,12 +1,38 @@
 ---
-import Layout from '../layout/Layout.astro';
-import App from '../App';
+import HomePage from '../components/HomePage';
 ---
 
-<Layout title="Integrator">
-  <App client:only="react" />
-</Layout>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Integrator</title>
+  </head>
+  <body>
+    <div id="app" class="min-h-screen">
+      <HomePage client:load />
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+</style>
 
 <script>
-  import '../main';
+  // Prevent default navigation and handle it through React Router
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest('a');
+    if (anchor && anchor.href && anchor.href.startsWith(window.location.origin)) {
+      e.preventDefault();
+      window.history.pushState({}, '', anchor.href);
+    }
+  });
+
+  // Handle browser back/forward buttons
+  window.addEventListener('popstate', () => {
+    // This will trigger React Router to handle the navigation
+    window.dispatchEvent(new Event('popstate'));
+  });
 </script>
