@@ -198,12 +198,14 @@ const CollectionModal: React.FC<{
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{snapshot.item_count}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{snapshot.size_kb}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
-                          <button
-                            onClick={() => onViewSnapshot(snapshot.id)}
+                          <a
+                            href={`/app/snapshot/${snapshot.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-900 hover:underline"
                           >
                             View
-                          </button>
+                          </a>
                           <button
                             onClick={() => onSelectForCompare(snapshot)}
                             disabled={selectedSnapshots.length >= 2 && !isSelected}
@@ -361,19 +363,6 @@ const IntegratorApp: React.FC = () => {
       setModalSnapshots([]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Handle snapshot view
-  const handleViewSnapshot = async (snapshotId: number) => {
-    if (!selectedCollection) return;
-    
-    try {
-      const data = await collectionService.getCollectionDetails(selectedCollection.id);
-      addNotification('info', `Viewing snapshot ${snapshotId}`);
-      // TODO: Implement snapshot view UI
-    } catch (error) {
-      addNotification('error', 'Failed to load snapshot details');
     }
   };
 
@@ -554,12 +543,12 @@ const IntegratorApp: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.first_seen)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.last_seen)}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() => handleCollectionSelect(collection)}
+                            <a
+                              href={`/app/collection/${collection.id}`}
                               className="text-blue-600 hover:text-blue-900 font-medium hover:underline"
                             >
                               View Snapshots
-                            </button>
+                            </a>
                           </td>
                         </tr>
                       ))}
@@ -803,7 +792,7 @@ const IntegratorApp: React.FC = () => {
         snapshots={modalSnapshots}
         isLoading={isLoading}
         onClose={() => setShowCollectionModal(false)}
-        onViewSnapshot={handleViewSnapshot}
+        onViewSnapshot={() => {}}
         onSelectForCompare={handleSelectForCompare}
         selectedSnapshots={selectedSnapshots}
       />
