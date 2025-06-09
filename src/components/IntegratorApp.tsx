@@ -16,8 +16,11 @@ interface Collection {
 
 interface Snapshot {
   id: number;
+  collection_id: string;
   snapshot_time: string;
-  hash: string;
+  collection_name: string;
+  item_count: number;
+  size_kb: number;
 }
 
 interface ApiKey {
@@ -175,6 +178,8 @@ const CollectionModal: React.FC<{
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Snapshot Time</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hash</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size (KB)</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -188,8 +193,10 @@ const CollectionModal: React.FC<{
                           {new Date(snapshot.snapshot_time).toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                          {snapshot.hash.substring(0, 16)}...
+                          {snapshot.collection_id.substring(0, 16)}...
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{snapshot.item_count}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{snapshot.size_kb}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
                           <button
                             onClick={() => onViewSnapshot(snapshot.id)}
@@ -318,7 +325,7 @@ const IntegratorApp: React.FC = () => {
       reader.onload = async (e) => {
         try {
           const content = JSON.parse(e.target?.result as string);
-          const response = await collectionService.storeCollection(content.info._postman_id, content.info.name);
+          const response = await collectionService.saveCollection(content.info._postman_id, content.info.name);
           addNotification('success', 'Collection imported successfully');
           setSelectedFile(null);
           // Refresh collections list
@@ -342,10 +349,19 @@ const IntegratorApp: React.FC = () => {
   };
 
   // Handle collection selection
-  const handleCollectionSelect = (collection: Collection) => {
+  const handleCollectionSelect = async (collection: Collection) => {
     setSelectedCollection(collection);
     setShowCollectionModal(true);
-    setModalSnapshots([]); // Reset snapshots since we're not fetching them anymore
+    setIsLoading(true);
+    try {
+      const response = await collectionService.getCollectionSnapshots(collection.id);
+      setModalSnapshots(response.data);
+    } catch (error) {
+      addNotification('error', 'Failed to fetch snapshots for this collection');
+      setModalSnapshots([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle snapshot view
@@ -385,7 +401,7 @@ const IntegratorApp: React.FC = () => {
   // Handle API key management
   const handleApiKeyAdd = async (apiKey: string) => {
     try {
-      await apiKeyService.storeApiKey(apiKey);
+      await apiKeyService.saveApiKey(apiKey);
       addNotification('success', 'API key added successfully');
       // Refresh API keys list
       const keys = await apiKeyService.getApiKeys();

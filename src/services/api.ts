@@ -75,7 +75,7 @@ export const authService = {
 
 // API Key services
 export const apiKeyService = {
-  storeApiKey: async (apiKey: string) => {
+  saveApiKey: async (apiKey: string) => {
     const response = await api.post('/api-key', { api_key: apiKey });
     return response.data;
   },
@@ -103,8 +103,8 @@ export const collectionService = {
     return response.data;
   },
 
-  storeCollection: async (collectionId: string, name: string) => {
-    const response = await api.post('/collections/store', { collection_id: collectionId, name });
+  saveCollection: async (collectionId: string, name: string) => {
+    const response = await api.post('/collections/save-collection', { collection_id: collectionId, name });
     return response.data;
   },
 
