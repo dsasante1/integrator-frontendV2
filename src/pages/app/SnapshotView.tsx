@@ -23,7 +23,7 @@ const SnapshotView: React.FC<{ snapshotId?: string }> = ({ snapshotId }) => {
       setError(null);
       try {
         // You may need to adjust this API call if you have a direct snapshot endpoint
-        const response = await collectionService.getCollectionDetails(snapshotId!);
+        const response = await collectionService.getCollectionSnapshots(snapshotId!);
         setSnapshot(response.data || response); // handle both {data: ...} and direct object
       } catch (err: any) {
         setError(err.message || 'Failed to load snapshot');

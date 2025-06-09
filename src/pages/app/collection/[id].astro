@@ -1,0 +1,6 @@
+---
+import CollectionSnapshotsPage from '../../../components/CollectionSnapshotsPage';
+const { id } = Astro.params;
+---
+
+<CollectionSnapshotsPage client:load collectionId={id} /> 
