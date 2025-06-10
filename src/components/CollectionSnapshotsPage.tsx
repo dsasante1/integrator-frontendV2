@@ -1,14 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { collectionService } from '../services/api';
-import {
-  Loader2,
-  BarChart3,
-  FileText,
-  Hash,
-  ListOrdered,
-  Database,
-  Eye,
-} from 'lucide-react';
 
 interface Snapshot {
   id: number;
@@ -19,114 +10,138 @@ interface Snapshot {
   size_kb: number;
 }
 
+interface Pagination {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalItems: number;
+}
+
+const DEFAULT_PAGE_SIZE = 10;
+
 const CollectionSnapshotsPage: React.FC<{ collectionId: string }> = ({ collectionId }) => {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    totalPages: 1,
+    totalItems: 0,
+  });
+
+  const fetchSnapshots = async (page = 1, pageSize = DEFAULT_PAGE_SIZE) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await collectionService.getCollectionSnapshots(collectionId, page, pageSize);
+      setSnapshots(data.data || []);
+      setPagination({
+        page: data.page || 1,
+        pageSize: data.pageSize || DEFAULT_PAGE_SIZE,
+        totalPages: data.totalPages || 1,
+        totalItems: data.totalItems || (data.data ? data.data.length : 0),
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch snapshots');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSnapshots = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await collectionService.getCollectionSnapshots(collectionId);
-        setSnapshots(data.data || data);
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch snapshots');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (collectionId) fetchSnapshots();
+    if (collectionId) fetchSnapshots(1, pagination.pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionId]);
 
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    fetchSnapshots(newPage, pagination.pageSize);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-100 flex flex-col items-center py-12 px-2">
-      <div className="w-full max-w-5xl bg-white/90 rounded-3xl shadow-2xl px-8 py-10 border border-gray-100 mt-6">
+    <div style={{ minHeight: '100vh', background: '#fff', padding: '0' }}>
+      <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '0' }}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-10">
-          <h1 className="text-4xl font-extrabold text-gray-800 flex items-center gap-4 tracking-tight">
-            <FileText className="h-10 w-10 text-blue-600" />
-            Collection Snapshots
-          </h1>
-        </div>
+        <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '24px 0 24px 0' }}>Collection Snapshots</h1>
 
         {/* Content */}
         {loading && (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Loader2 className="animate-spin h-12 w-12 text-blue-500 mb-6" />
-            <p className="text-xl text-gray-600 font-semibold">Loading snapshots...</p>
+          <div style={{ padding: '40px 0', textAlign: 'center' }}>
+            <span style={{ fontSize: '1.2rem', color: '#444' }}>Loading snapshots...</span>
           </div>
         )}
 
         {error && (
-          <div className="flex flex-col items-center justify-center py-24 text-center text-red-600">
-            <BarChart3 className="h-12 w-12 mb-4" />
-            <p className="text-xl font-semibold">{error}</p>
+          <div style={{ padding: '40px 0', textAlign: 'center', color: 'red' }}>
+            <span style={{ fontSize: '1.2rem' }}>{error}</span>
           </div>
         )}
 
         {!loading && snapshots.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <BarChart3 className="h-20 w-20 text-gray-300" />
-            <h3 className="text-2xl font-bold text-gray-700 mt-6">No Snapshots Found</h3>
-            <p className="text-gray-500 mt-3">There are currently no snapshots for this collection.</p>
+          <div style={{ padding: '40px 0', textAlign: 'center' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginTop: '16px' }}>No Snapshots Found</h3>
+            <p style={{ color: '#666', marginTop: '8px' }}>There are currently no snapshots for this collection.</p>
           </div>
         )}
 
         {!loading && snapshots.length > 0 && !error && (
-          <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-md bg-white">
-            <table className="min-w-full table-auto text-sm text-left rounded-2xl overflow-hidden">
-              <thead className="bg-blue-50 text-blue-900 text-xs uppercase font-bold tracking-wider sticky top-0 z-10">
-                <tr>
-                  <th className="px-6 py-4 flex items-center gap-2 whitespace-nowrap">
-                    <Hash className="w-4 h-4 text-blue-400" /> ID
-                  </th>
-                  <th className="px-6 py-4 flex items-center gap-2 whitespace-nowrap">
-                    <FileText className="w-4 h-4 text-blue-400" /> Snapshot Time
-                  </th>
-                  <th className="px-6 py-4 flex items-center gap-2 whitespace-nowrap">
-                    <Hash className="w-4 h-4 text-blue-400" /> Hash
-                  </th>
-                  <th className="px-6 py-4 flex items-center gap-2 whitespace-nowrap">
-                    <ListOrdered className="w-4 h-4 text-blue-400" /> Items
-                  </th>
-                  <th className="px-6 py-4 flex items-center gap-2 whitespace-nowrap">
-                    <Database className="w-4 h-4 text-blue-400" /> Size (KB)
-                  </th>
-                  <th className="px-6 py-4 text-center whitespace-nowrap">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {snapshots.map((snapshot, idx) => (
-                  <tr
-                    key={snapshot.id}
-                    className={`transition-colors duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-blue-50/60'} hover:bg-blue-100/60`}
-                  >
-                    <td className="px-6 py-4 font-semibold text-gray-900 whitespace-nowrap">{snapshot.id}</td>
-                    <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
-                      {new Date(snapshot.snapshot_time).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 font-mono whitespace-nowrap">
-                      {snapshot.collection_id.slice(0, 16)}...
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{snapshot.item_count}</td>
-                    <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{snapshot.size_kb}</td>
-                    <td className="px-6 py-4 text-center whitespace-nowrap">
-                      <a
-                        href={`/app/snapshot/${snapshot.id}`}
-                        className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 hover:from-blue-200 hover:to-blue-300 hover:text-blue-900 text-xs font-semibold transition-all shadow-md border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        title="View Snapshot"
-                      >
-                        <Eye className="h-4 w-4" />
-                        View
-                      </a>
-                    </td>
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1.05rem', color: '#111' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '8px 8px 8px 0', fontWeight: 'bold' }}>ID</th>
+                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Snapshot Time</th>
+                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Hash</th>
+                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Items</th>
+                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Size (KB)</th>
+                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {snapshots.map(snapshot => (
+                    <tr key={snapshot.id}>
+                      <td style={{ padding: '4px 8px 4px 0' }}>{snapshot.id}</td>
+                      <td style={{ padding: '4px 8px' }}>{new Date(snapshot.snapshot_time).toLocaleString()}</td>
+                      <td style={{ padding: '4px 8px' }}>{snapshot.collection_id.slice(0, 16)}...</td>
+                      <td style={{ padding: '4px 8px' }}>{snapshot.item_count}</td>
+                      <td style={{ padding: '4px 8px' }}>{snapshot.size_kb}</td>
+                      <td style={{ padding: '4px 8px' }}>
+                        <a
+                          href={`/app/snapshot/${snapshot.id}`}
+                          style={{ color: 'blue', textDecoration: 'underline', cursor: 'pointer' }}
+                          title="View Snapshot"
+                        >
+                          View
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Pagination Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '24px 0' }}>
+              <button
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                style={{ marginRight: 16, padding: '6px 12px', cursor: pagination.page === 1 ? 'not-allowed' : 'pointer' }}
+              >
+                Prev
+              </button>
+              <span style={{ margin: '0 12px' }}>
+                Page {pagination.page} of {pagination.totalPages} (Total: {pagination.totalItems})
+              </span>
+              <button
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.totalPages}
+                style={{ marginLeft: 16, padding: '6px 12px', cursor: pagination.page === pagination.totalPages ? 'not-allowed' : 'pointer' }}
+              >
+                Next
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

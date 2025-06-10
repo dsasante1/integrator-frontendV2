@@ -113,8 +113,10 @@ export const collectionService = {
     return response.data;
   },
 
-  getCollectionSnapshots: async (id: string) => {
-    const response = await api.get(`/collections/${id}/snapshots`);
+  getCollectionSnapshots: async (id: string, page = 1, pageSize = 10) => {
+    const response = await api.get(`/collections/${id}/snapshots`, {
+      params: { page, pageSize },
+    });
     return response.data;
   },
 
