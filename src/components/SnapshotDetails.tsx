@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { snapshotService } from '../services/api';
-import { Loader2, XCircle, FileText, Database, Hash, ListOrdered, Filter, Folder } from 'lucide-react';
+import { Loader2, XCircle, FileText, Database, Folder } from 'lucide-react';
 
 interface SnapshotDetail {
   collection_id: string;
@@ -49,7 +49,7 @@ const SnapshotDetails: React.FC<{ snapshotId: string; collectionId: string }> = 
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold flex items-center gap-2 text-gray-900">
             <FileText className="h-7 w-7 text-blue-600" />
-            Snapshot Viewer
+            Snapshot Details
           </h1>
         </div>
 
@@ -77,22 +77,6 @@ const SnapshotDetails: React.FC<{ snapshotId: string; collectionId: string }> = 
               <Field label="Collection Name" value={snapshot.collection_name} />
               <Field label="Collection ID" value={snapshot.collection_id} />
               <Field label="Snapshot ID" value={snapshot.snapshot_id} />
-            </Card>
-
-            {/* Filters */}
-            <Card title="Filters Applied" icon={<Filter className="text-green-500" />}>
-              <Field label="Fields" value={snapshot.filters_applied.Fields || 'None'} />
-              <Field label="Search" value={snapshot.filters_applied.Search || 'None'} />
-              <Field label="Item Type" value={snapshot.filters_applied.ItemType || 'None'} />
-              <Field label="Depth" value={snapshot.filters_applied.Depth || 'None'} />
-            </Card>
-
-            {/* Pagination */}
-            <Card title="Pagination Details" icon={<ListOrdered className="text-purple-500" />}>
-              <Field label="Page" value={snapshot.pagination.page.toString()} />
-              <Field label="Page Size" value={snapshot.pagination.page_size.toString()} />
-              <Field label="Total Items" value={snapshot.pagination.total_items.toString()} />
-              <Field label="Total Pages" value={snapshot.pagination.total_pages.toString()} />
             </Card>
 
             {/* Items */}
@@ -123,7 +107,7 @@ const SnapshotDetails: React.FC<{ snapshotId: string; collectionId: string }> = 
   );
 };
 
-// Reusable card container
+// card container
 const Card: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
   <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 shadow-sm">
     <div className="flex items-center gap-2 text-xl font-semibold text-gray-800 mb-4">
@@ -134,7 +118,7 @@ const Card: React.FC<{ title: string; icon: React.ReactNode; children: React.Rea
   </div>
 );
 
-// Reusable field display
+// field display
 const Field: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div className="flex flex-col">
     <span className="text-gray-500">{label}</span>
