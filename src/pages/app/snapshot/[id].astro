@@ -1,0 +1,20 @@
+---
+import Layout from '../../../layout/Layout.astro';
+import SnapshotDetails from '../../../components/SnapshotDetails';
+
+const { id } = Astro.params;
+const url = new URL(Astro.request.url);
+const collectionId = url.searchParams.get('collectionId');
+
+if (!id || !collectionId) {
+  return Astro.redirect('/404');
+}
+---
+
+<Layout title="Snapshot Details">
+  <SnapshotDetails 
+    client:load 
+    snapshotId={id} 
+    collectionId={collectionId} 
+  />
+</Layout>

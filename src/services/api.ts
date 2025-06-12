@@ -131,6 +131,19 @@ export const collectionService = {
   },
 };
 
+//snapshot services
+
+export const snapshotService = {
+  // id = collection id
+  getSnapshotFolders: async (snapshotId: string, id: string) => {
+    const response = await api.get(`/collections/${id}/snapshots/${snapshotId}/items?fields=name`);
+    return response.data;
+  },
+
+
+};
+
+
 // Health check service
 export const healthService = {
   checkHealth: async () => {
