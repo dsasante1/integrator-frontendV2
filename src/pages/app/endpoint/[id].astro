@@ -1,0 +1,22 @@
+---
+import Layout from '../../../layout/Layout.astro';
+import EndPointDetails from '../../../components/EndPointDetails';
+
+const { id } = Astro.params;
+const url = new URL(Astro.request.url);
+const collectionId = url.searchParams.get('collectionId');
+const search = url.searchParams.get('search');
+
+if (!id || !collectionId || !search) {
+  return Astro.redirect('/404');
+}
+---
+
+<Layout title="Endpoint Details">
+  <EndPointDetails 
+    client:load 
+    snapshotId={id} 
+    collectionId={collectionId}
+    search={search}
+  />
+</Layout>

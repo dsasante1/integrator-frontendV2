@@ -88,12 +88,19 @@ const SnapshotDetails: React.FC<{ snapshotId: string; collectionId: string }> = 
               {snapshot.items.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {snapshot.items.map((item, index) => (
+                     <a
+                          href={`/app/endpoint/${snapshot.snapshot_id}?collectionId=${snapshot.collection_id}&search=${item.name}`}
+                          style={{ cursor: 'pointer' }}
+                          title="View Details"
+                        >
+
                     <div key={index} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition">
                       <div className="flex items-center gap-2 text-gray-800">
                         <Folder className="h-4 w-4 text-blue-500" />
                         <span className="text-sm font-medium">{item.name}</span>
                       </div>
                     </div>
+                    </a>
                   ))}
                 </div>
               ) : (

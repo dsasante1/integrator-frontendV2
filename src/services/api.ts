@@ -140,6 +140,11 @@ export const snapshotService = {
     return response.data;
   },
 
+    getEndPointDetails: async (snapshotId: string, id: string, search: string) => {
+    const response = await api.get(`/collections/${id}/snapshots/${snapshotId}/items?search=${search}`);
+    return response.data;
+  },
+
 
 };
 
