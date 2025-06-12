@@ -139,18 +139,51 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
 
   if (!snapshot) return null;
 
+  // Helper function to count all endpoints recursively
+  const countEndpoints = (items: any[]): number => {
+    return items.reduce((total, item) => {
+      if (item.request && item.request.method) {
+        // This is an endpoint
+        return total + 1;
+      } else if (item.item && Array.isArray(item.item)) {
+        // This is a folder with nested items
+        return total + countEndpoints(item.item);
+      }
+      return total;
+    }, 0);
+  };
+
+  // Helper function to collect all endpoints recursively
+  const collectEndpoints = (items: any[]): any[] => {
+    const endpoints: any[] = [];
+    
+    items.forEach(item => {
+      if (item.request && item.request.method) {
+        // This is an endpoint
+        endpoints.push(item);
+      } else if (item.item && Array.isArray(item.item)) {
+        // This is a folder with nested items
+        endpoints.push(...collectEndpoints(item.item));
+      }
+    });
+    
+    return endpoints;
+  };
+
   // Calculate total endpoints across all items
-  const totalEndpoints = snapshot.items.reduce((total, item) => total + (item.item?.length || 0), 0);
+  const totalEndpoints = snapshot.items.reduce((total, item) => {
+    return total + (item.item ? countEndpoints(item.item) : 0);
+  }, 0);
 
   return (
-    <div className="min-h-screen p-5">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-5">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 mb-8 border border-white/20">
-          <h1 className="text-black text-4xl font-bold mb-3">
+          <h1 className="text-white text-4xl font-bold mb-3">
             {snapshot.items[0]?.name || 'API Endpoints'}
           </h1>
-          <p className="text-black/80 text-lg">API Documentation</p>
+          <p className="text-white/80 text-lg">API Documentation</p>
         </div>
 
         {/* Collection Meta */}
@@ -187,15 +220,22 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
             );
           }
 
-          return collection.item.map(endpoint => {
+          // Collect all endpoints from nested structure
+          const allEndpoints = collectEndpoints(collection.item);
+
+          if (allEndpoints.length === 0) {
+            return (
+              <div key={collection.id} className="bg-white rounded-2xl p-8 mb-8 shadow-xl">
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">{collection.name}</h2>
+                <p className="text-gray-500 italic">No endpoints found in nested structure</p>
+              </div>
+            );
+          }
+
+          return allEndpoints.map(endpoint => {
             // Safety check for endpoint structure
             if (!endpoint.request) {
-              return (
-                <div key={endpoint.id} className="bg-white rounded-2xl p-8 mb-8 shadow-xl">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-4">{endpoint.name}</h2>
-                  <p className="text-gray-500 italic">Endpoint data not available</p>
-                </div>
-              );
+              return null;
             }
 
             const isCollapsed = collapsedSections.has(endpoint.id);
@@ -272,7 +312,19 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
                   </div>
                 )}
 
-                {/* Response */}
+                                  {/* Request Body */}
+                  {endpoint.request.body && endpoint.request.body.raw && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">
+                        Request Body
+                      </h3>
+                      <pre className="bg-gray-800 text-gray-200 p-4 rounded-md font-mono text-sm overflow-x-auto whitespace-pre-wrap">
+{endpoint.request.body.raw}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Response */}
                 {endpoint.response && endpoint.response.length > 0 ? (
                   <div className="mb-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b-2 border-gray-200">
