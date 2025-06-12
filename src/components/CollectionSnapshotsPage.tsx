@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collectionService } from '../services/api';
+import { Loader2, XCircle, FileText, ArrowLeft, Hash, ListOrdered, Database, } from 'lucide-react';
 
 interface Snapshot {
   id: number;
@@ -97,10 +98,10 @@ const CollectionSnapshotsPage: React.FC<CollectionSnapshotsPageProps> = ({ colle
                   <tr>
                     <th style={{ textAlign: 'left', padding: '8px 8px 8px 0', fontWeight: 'bold' }}>ID</th>
                     <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Snapshot Time</th>
-                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Hash</th>
+                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Collection ID</th>
                     <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Items</th>
                     <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Size (KB)</th>
-                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Actions</th>
+                    <th style={{ textAlign: 'left', padding: '8px', fontWeight: 'bold' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -113,7 +114,7 @@ const CollectionSnapshotsPage: React.FC<CollectionSnapshotsPageProps> = ({ colle
                       <td style={{ padding: '4px 8px' }}>{snapshot.size_kb}</td>
                       <td style={{ padding: '4px 8px' }}>
                         <a
-                          href={`/app/snapshot/${snapshot.id}`}
+                          href={`/app/snapshot/${snapshot.id}?collectionId=${snapshot.collection_id}`}
                           style={{ color: 'blue', textDecoration: 'underline', cursor: 'pointer' }}
                           title="View Snapshot"
                         >
