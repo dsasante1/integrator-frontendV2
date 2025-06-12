@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collectionService } from '../../services/api';
+import { collectionService } from '../services/api';
 import { Loader2, XCircle, FileText, ArrowLeft, Hash, ListOrdered, Database, ClipboardCopy } from 'lucide-react';
 
 interface SnapshotDetail {

@@ -19,7 +19,11 @@ interface Pagination {
 
 const DEFAULT_PAGE_SIZE = 10;
 
-const CollectionSnapshotsPage: React.FC<{ collectionId: string }> = ({ collectionId }) => {
+interface CollectionSnapshotsPageProps {
+  collectionId: string;
+}
+
+const CollectionSnapshotsPage: React.FC<CollectionSnapshotsPageProps> = ({ collectionId }) => {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
