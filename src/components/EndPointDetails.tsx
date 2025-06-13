@@ -441,17 +441,17 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
   }, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+    <div className="min-h-screen">
       <div className="flex">
         {/* Main Content */}
         <div className="flex-1 p-5">
           <div className="max-w-6xl mx-auto">
             {/* Header */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 mb-8 border border-white/20">
-              <h1 className="text-white text-4xl font-bold mb-3">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 mb-8 border border-black/20">
+              <h1 className="text-black text-4xl font-bold mb-3">
                 {snapshot.collection_name || 'API Endpoints'}
               </h1>
-              <p className="text-white/80 text-lg">API Documentation</p>
+              <p className="text-black/80 text-lg">API Documentation</p>
             </div>
 
             {/* Collection Meta */}
