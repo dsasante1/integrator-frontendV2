@@ -79,20 +79,20 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
   };
 
   const scrollToEndpoint = (endpointId: string, folderId?: string) => {
-    // Expand the folder if it's not already expanded
+    
     if (folderId && !expandedFolders.has(folderId)) {
       setExpandedFolders(prev => new Set([...prev, folderId]));
     }
     
-    // Set active endpoint for highlighting
+    
     setActiveEndpoint(endpointId);
     
-    // Wait for the DOM to update if we just expanded a folder
+    
     setTimeout(() => {
       const element = endpointRefs.current[endpointId];
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // Remove highlight after 2 seconds
+        
         setTimeout(() => setActiveEndpoint(null), 2000);
       }
     }, folderId ? 100 : 0);
@@ -142,14 +142,14 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
     return name.toLowerCase().includes('admin') ? 'border-t-orange-500' : 'border-t-green-500';
   };
 
-  // Helper function to count all endpoints recursively
+  
   const countEndpoints = (items: any[]): number => {
     return items.reduce((total, item) => {
       if (item.request && item.request.method) {
-        // This is an endpoint
+        
         return total + 1;
       } else if (item.item && Array.isArray(item.item)) {
-        // This is a folder with nested items
+        
         return total + countEndpoints(item.item);
       }
       return total;
@@ -159,7 +159,7 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
   const renderMinimapItems = (items: any[], parentFolderId?: string, level: number = 0) => {
     return items.map(item => {
       if (item.item && Array.isArray(item.item)) {
-        // This is a folder
+        
         const isExpanded = expandedFolders.has(item.id);
         return (
           <div key={item.id} className={`${level > 0 ? 'ml-3' : ''}`}>
@@ -179,7 +179,7 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
           </div>
         );
       } else if (item.request) {
-        // This is an endpoint
+        
         return (
           <div 
             key={item.id} 
@@ -373,9 +373,9 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
 
   const renderItems = (items: any[], isNested: boolean = false) => {
     return items.map(item => {
-      // Check if this is a folder (has nested items) or an endpoint (has request)
+      
       if (item.item && Array.isArray(item.item)) {
-        // This is a folder
+        
         const isExpanded = expandedFolders.has(item.id);
         const folderEndpointCount = countEndpoints(item.item);
         
@@ -403,7 +403,7 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
           </div>
         );
       } else if (item.request) {
-        // This is an endpoint
+        
         return renderEndpoint(item, isNested);
       }
       
@@ -435,7 +435,7 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
 
   if (!snapshot) return null;
 
-  // Calculate total endpoints across all items
+  
   const totalEndpoints = snapshot.items.reduce((total, item) => {
     return total + (item.item ? countEndpoints(item.item) : 0);
   }, 0);
