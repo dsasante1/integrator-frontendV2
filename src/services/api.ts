@@ -145,6 +145,11 @@ export const snapshotService = {
     return response.data;
   },
 
+  refreshSnapShots: async (collectionId: string, collectionName: string) => {
+      const response = await api.post('/collections/save-collection', { collection_id: collectionId, name: collectionName });
+    return response.data;
+  }
+
 
 };
 
