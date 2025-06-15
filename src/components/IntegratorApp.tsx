@@ -102,140 +102,13 @@ const NotificationItem: React.FC<{ notification: Notification; onClose: () => vo
   );
 };
 
-// Collection Modal Component
-const CollectionModal: React.FC<{
-  show: boolean;
-  collection: Collection | null;
-  snapshots: Snapshot[];
-  isLoading: boolean;
-  onClose: () => void;
-  onViewSnapshot: (id: number) => void;
-  onSelectForCompare: (snapshot: Snapshot) => void;
-  selectedSnapshots: Snapshot[];
-}> = ({ 
-  show, 
-  collection, 
-  snapshots, 
-  isLoading, 
-  onClose, 
-  onViewSnapshot, 
-  onSelectForCompare, 
-  selectedSnapshots 
-}) => {
-  if (!show) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 modal-backdrop flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Snapshots for {collection?.name || 'Collection'}
-          </h2>
-          <button 
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-        
-        {/* Modal Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {isLoading && (
-            <div className="text-center py-12">
-              <Loader2 className="animate-spin h-12 w-12 text-blue-500 mx-auto" />
-              <p className="mt-4 text-gray-600">Loading snapshots...</p>
-            </div>
-          )}
-          
-          {!isLoading && snapshots.length === 0 && (
-            <div className="text-center py-12">
-              <BarChart3 className="mx-auto h-16 w-16 text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">No snapshots found</h3>
-              <p className="mt-2 text-gray-500">No snapshots found for this collection.</p>
-            </div>
-          )}
-          
-          {!isLoading && snapshots.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Snapshot Time</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hash</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size (KB)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {snapshots.map(snapshot => {
-                    const isSelected = selectedSnapshots.some(s => s.id === snapshot.id);
-                    return (
-                      <tr key={snapshot.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{snapshot.id}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(snapshot.snapshot_time).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                          {snapshot.collection_id.substring(0, 16)}...
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{snapshot.item_count}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{snapshot.size_kb}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
-                          <a
-                            href={`/app/snapshot/${snapshot.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-900 hover:underline"
-                          >
-                            View
-                          </a>
-                          <button
-                            onClick={() => onSelectForCompare(snapshot)}
-                            disabled={selectedSnapshots.length >= 2 && !isSelected}
-                            className="text-green-600 hover:text-green-900 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"
-                          >
-                            {isSelected ? '✓ Selected' : 'Select for Compare'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        
-        {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const TAB_LIST = [
   { key: 'collections', label: 'Collections' },
   { key: 'import', label: 'Import' },
   { key: 'settings', label: 'Settings' },
 ];
 
-// Utility function for formatting dates
+//TODO Utility function for formatting dates. move to utility directory
 function formatDate(dateString?: string) {
   if (!dateString) return 'N/A';
   try {
@@ -263,8 +136,21 @@ const IntegratorApp: React.FC = () => {
   const [selectedCollection, setSelectedCollection] = React.useState<Collection | null>(null);
   const [modalSnapshots, setModalSnapshots] = React.useState<Snapshot[]>([]);
   const [showActionsForCollection, setShowActionsForCollection] = React.useState<{[key: string]: boolean}>({});
+  const [dropdownPosition, setDropdownPosition] = React.useState<{[key: string]: {top: number, left: number}}>({});
+  const actionButtonRefs = React.useRef<{[key: string]: HTMLButtonElement | null}>({});
 
-  const toggleActions = (collectionId: string) => {
+  const toggleActions = (collectionId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    const button = event.currentTarget;
+    const rect = button.getBoundingClientRect();
+    
+    setDropdownPosition(prev => ({
+      ...prev,
+      [collectionId]: {
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.right - 160
+      }
+    }));
+    
     setShowActionsForCollection(prev => ({
       ...prev,
       [collectionId]: !prev[collectionId]
@@ -549,9 +435,10 @@ const IntegratorApp: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.first_seen)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.last_seen)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap relative">
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <button
-                              onClick={() => toggleActions(collection.id)}
+                              ref={el => actionButtonRefs.current[collection.id] = el}
+                              onClick={(e) => toggleActions(collection.id, e)}
                               className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
                             >
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -566,35 +453,29 @@ const IntegratorApp: React.FC = () => {
                                   className="fixed inset-0 z-10"
                                   onClick={() => handleClickOutside(collection.id)}
                                 />
-                                {/* Dropdown menu */}
-                                <div className="absolute right-0 top-8 z-20 bg-white rounded-md shadow-lg border border-gray-200 py-1 min-w-[160px]">
-                                  <button
-                                    onClick={() => {
-                                      handleCollectionSelect(collection);
-                                      handleClickOutside(collection.id);
-                                    }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                {/* Dropdown menu - using fixed positioning to escape overflow container */}
+                                <div 
+                                  className="fixed z-20 bg-white rounded-md shadow-lg border border-gray-200 py-1 min-w-[160px]"
+                                  style={{
+                                    top: `${dropdownPosition[collection.id]?.top || 0}px`,
+                                    left: `${dropdownPosition[collection.id]?.left || 0}px`
+                                  }}
+                                >
+                                   <a
+                                href={`/app/collection/${collection.id}`}
+                                      className="block w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 hover:text-gray-900"
                                   >
                                     View Snapshots
-                                  </button>
+                                        </a>
                                   <button
                                     onClick={() => {
-                                      // Handle view change history
                                       handleClickOutside(collection.id);
                                     }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 hover:text-gray-900"
                                   >
-                                    View Change History
+                                    View Collection History
                                   </button>
-                                  <button
-                                    onClick={() => {
-                                      // Handle other actions
-                                      handleClickOutside(collection.id);
-                                    }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                                  >
-                                    Export Collection
-                                  </button>
+                                
                                 </div>
                               </>
                             )}
@@ -829,18 +710,6 @@ const IntegratorApp: React.FC = () => {
           </section>
         )}
       </div>
-
-      {/* Collection Snapshots Modal */}
-      <CollectionModal
-        show={showCollectionModal}
-        collection={selectedCollection}
-        snapshots={modalSnapshots}
-        isLoading={isLoading}
-        onClose={() => setShowCollectionModal(false)}
-        onViewSnapshot={() => {}}
-        onSelectForCompare={handleSelectForCompare}
-        selectedSnapshots={selectedSnapshots}
-      />
     </div>
   );
 };
