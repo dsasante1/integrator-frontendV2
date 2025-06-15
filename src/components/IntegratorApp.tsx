@@ -240,7 +240,6 @@ const CollectionModal: React.FC<{
 const TAB_LIST = [
   { key: 'collections', label: 'Collections' },
   { key: 'import', label: 'Import' },
-  { key: 'compare', label: 'Compare' },
   { key: 'settings', label: 'Settings' },
 ];
 
@@ -272,6 +271,14 @@ const IntegratorApp: React.FC = () => {
   const [selectedCollection, setSelectedCollection] = React.useState<Collection | null>(null);
   const [modalSnapshots, setModalSnapshots] = React.useState<Snapshot[]>([]);
 
+  const [showActionsForCollection, setShowActionsForCollection] = React.useState<{[key: string]: boolean}>({});
+
+const toggleActions = (collectionId: string) => {
+  setShowActionsForCollection(prev => ({
+    ...prev,
+    [collectionId]: !prev[collectionId]
+  }));
+};
   // Fetch collections on mount and when authenticated
   useEffect(() => {
     if (isAuthenticated) {
@@ -530,29 +537,36 @@ const IntegratorApp: React.FC = () => {
                         <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Collection</th>
                         <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">First Seen</th>
                         <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Last Seen</th>
-                        <th className="px-6 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
-                      {collections.map(collection => (
-                        <tr key={collection.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-medium text-gray-900">{collection.name}</div>
-                            <div className="text-xs text-gray-400">{collection.id}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.first_seen)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.last_seen)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <a
-                              href={`/app/collection/${collection.id}`}
-                              className="text-blue-600 hover:text-blue-900 font-medium hover:underline"
-                            >
-                              View Snapshots
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
+{collections.map(collection => (
+  <tr key={collection.id} className="hover:bg-gray-50">
+    <td className="px-6 py-4 whitespace-nowrap">
+      <div className="font-medium text-gray-900">{collection.name}</div>
+      <div className="text-xs text-gray-400">{collection.id}</div>
+    </td>
+    <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.first_seen)}</td>
+    <td className="px-6 py-4 whitespace-nowrap text-gray-500">{formatDate(collection.last_seen)}</td>
+    <td className="px-6 py-4 whitespace-nowrap">
+      {!showActionsForCollection[collection.id] ? (
+        <button
+          onClick={() => toggleActions(collection.id)}
+          className="text-gray-400 hover:text-gray-600 font-bold text-lg"
+        >
+          ⋯
+        </button>
+      ) : (
+        <a
+          href={`/app/collection/${collection.id}`}
+          className="text-blue-600 hover:text-blue-900 font-medium hover:underline"
+        >
+          View Snapshots
+        </a>
+      )}
+    </td>
+  </tr>
+))}                    </tbody>
                   </table>
                 </div>
               )}
