@@ -21,7 +21,7 @@ interface SnapshotDetail {
   snapshot_id: string;
 }
 
-const SnapshotDetails: React.FC<{ snapshotId: string; collectionId: string }> = ({ snapshotId, collectionId }) => {
+const SnapshotDetails: React.FC<{ snapshotId: string; collectionId: string, itemSize: string }> = ({ snapshotId, collectionId, itemSize }) => {
   const [snapshot, setSnapshot] = useState<SnapshotDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +31,8 @@ const SnapshotDetails: React.FC<{ snapshotId: string; collectionId: string }> = 
       setLoading(true);
       setError(null);
       try {
-        const response = await snapshotService.getSnapshotFolders(snapshotId, collectionId);
+        const parseItemSize =  parseInt(itemSize, 10);
+        const response = await snapshotService.getSnapshotFolders(snapshotId, collectionId, parseItemSize);
         setSnapshot(response.data || response);
       } catch (err: any) {
         setError(err.message || 'Failed to load snapshot');
@@ -40,7 +41,7 @@ const SnapshotDetails: React.FC<{ snapshotId: string; collectionId: string }> = 
       }
     };
     if (snapshotId) fetchSnapshot();
-  }, [snapshotId, collectionId]);
+  }, [snapshotId, collectionId, itemSize]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">

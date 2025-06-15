@@ -467,14 +467,12 @@ const IntegratorApp: React.FC = () => {
                                   >
                                     View Snapshots
                                         </a>
-                                  <button
-                                    onClick={() => {
-                                      handleClickOutside(collection.id);
-                                    }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 hover:text-gray-900"
+                                   <a
+                                href={`/app/collection/${collection.id}`}
+                                      className="block w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 hover:text-gray-900"
                                   >
                                     View Collection History
-                                  </button>
+                                        </a>
                                 
                                 </div>
                               </>

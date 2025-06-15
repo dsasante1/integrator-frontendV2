@@ -256,7 +256,7 @@ const CollectionSnapshotsPage: React.FC<CollectionSnapshotsPageProps> = ({ colle
                       </td>
                       <td className="px-6 py-4 text-center">
                         <a
-                          href={`/app/snapshot/${snapshot.id}?collectionId=${snapshot.collection_id}`}
+                          href={`/app/snapshot/${snapshot.id}?collectionId=${snapshot.collection_id}&itemSize=${snapshot.item_count}`}
                           className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors"
                           title="View Snapshot Details"
                         >

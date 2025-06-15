@@ -135,8 +135,8 @@ export const collectionService = {
 
 export const snapshotService = {
   // id = collection id
-  getSnapshotFolders: async (snapshotId: string, id: string) => {
-    const response = await api.get(`/collections/${id}/snapshots/${snapshotId}/items?fields=name`);
+  getSnapshotFolders: async (snapshotId: string, id: string, itemSize: number) => {
+    const response = await api.get(`/collections/${id}/snapshots/${snapshotId}/items?fields=name&page_size=${itemSize}`);
     return response.data;
   },
 

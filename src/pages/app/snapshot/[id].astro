@@ -5,8 +5,9 @@ import SnapshotDetails from '../../../components/SnapshotDetails';
 const { id } = Astro.params;
 const url = new URL(Astro.request.url);
 const collectionId = url.searchParams.get('collectionId');
+const itemSize = url.searchParams.get('itemSize');
 
-if (!id || !collectionId) {
+if (!id || !collectionId || !itemSize) {
   return Astro.redirect('/404');
 }
 ---
@@ -16,5 +17,6 @@ if (!id || !collectionId) {
     client:load 
     snapshotId={id} 
     collectionId={collectionId} 
+    itemSize={itemSize}
   />
 </Layout>
