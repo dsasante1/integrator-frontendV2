@@ -12,9 +12,11 @@ interface EndPointDetail {
     Depth: string;
   };
   items: Array<{
-    id: string;
+    id?: string;
     name: string;
-    item: Array<any>;
+    item?: Array<any>;
+    request?: any;
+    response?: any[];
   }>;
   pagination: {
     page: number;
@@ -78,21 +80,22 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
     });
   };
 
+  // Generate a unique ID for endpoints without one
+  const getEndpointId = (endpoint: any, index: number) => {
+    return endpoint.id || `endpoint-${index}-${endpoint.name?.replace(/\s+/g, '-')}`;
+  };
+
   const scrollToEndpoint = (endpointId: string, folderId?: string) => {
-    
     if (folderId && !expandedFolders.has(folderId)) {
       setExpandedFolders(prev => new Set([...prev, folderId]));
     }
     
-    
     setActiveEndpoint(endpointId);
-    
     
     setTimeout(() => {
       const element = endpointRefs.current[endpointId];
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        
         setTimeout(() => setActiveEndpoint(null), 2000);
       }
     }, folderId ? 100 : 0);
@@ -142,30 +145,51 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
     return name.toLowerCase().includes('admin') ? 'border-t-orange-500' : 'border-t-green-500';
   };
 
-  
+  // Check if the data structure is flat (like auth) or nested (like vaska)
+  const isDataFlat = () => {
+    if (!snapshot || !snapshot.items || snapshot.items.length === 0) return false;
+    // Check if any item has a request property directly (flat structure)
+    return snapshot.items.some(item => item.request && item.request.method);
+  };
+
+  // Count endpoints with support for both structures
   const countEndpoints = (items: any[]): number => {
     return items.reduce((total, item) => {
       if (item.request && item.request.method) {
-        
         return total + 1;
       } else if (item.item && Array.isArray(item.item)) {
-        
         return total + countEndpoints(item.item);
       }
       return total;
     }, 0);
   };
 
+  // Count all endpoints in the snapshot
+  const countAllEndpoints = (): number => {
+    if (!snapshot) return 0;
+    
+    if (isDataFlat()) {
+      // For flat structure, count items with request property
+      return snapshot.items.filter(item => item.request && item.request.method).length;
+    } else {
+      // For nested structure
+      return snapshot.items.reduce((total, item) => {
+        return total + (item.item ? countEndpoints(item.item) : 0);
+      }, 0);
+    }
+  };
+
   const renderMinimapItems = (items: any[], parentFolderId?: string, level: number = 0) => {
-    return items.map(item => {
+    return items.map((item, index) => {
+      const itemId = getEndpointId(item, index);
+      
       if (item.item && Array.isArray(item.item)) {
-        
-        const isExpanded = expandedFolders.has(item.id);
+        const isExpanded = expandedFolders.has(itemId);
         return (
-          <div key={item.id} className={`${level > 0 ? 'ml-3' : ''}`}>
+          <div key={itemId} className={`${level > 0 ? 'ml-3' : ''}`}>
             <div 
               className="flex items-center gap-1 py-1 px-2 rounded hover:bg-gray-100 cursor-pointer text-sm"
-              onClick={() => toggleFolder(item.id)}
+              onClick={() => toggleFolder(itemId)}
             >
               {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               <Folder className="h-3 w-3 text-indigo-600" />
@@ -173,20 +197,19 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
             </div>
             {isExpanded && (
               <div className="ml-2">
-                {renderMinimapItems(item.item, item.id, level + 1)}
+                {renderMinimapItems(item.item, itemId, level + 1)}
               </div>
             )}
           </div>
         );
       } else if (item.request) {
-        
         return (
           <div 
-            key={item.id} 
+            key={itemId} 
             className={`flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-100 cursor-pointer ${level > 0 ? 'ml-5' : 'ml-2'} ${
-              activeEndpoint === item.id ? 'bg-indigo-100' : ''
+              activeEndpoint === itemId ? 'bg-indigo-100' : ''
             }`}
-            onClick={() => scrollToEndpoint(item.id, parentFolderId)}
+            onClick={() => scrollToEndpoint(itemId, parentFolderId)}
           >
             <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${getMethodBadgeClassesMini(item.request.method)}`}>
               {item.request.method}
@@ -199,17 +222,18 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
     });
   };
 
-  const renderEndpoint = (endpoint: any, isNested: boolean = false) => {
+  const renderEndpoint = (endpoint: any, index: number, isNested: boolean = false) => {
     if (!endpoint.request) return null;
 
-    const isCollapsed = collapsedSections.has(endpoint.id);
+    const endpointId = getEndpointId(endpoint, index);
+    const isCollapsed = collapsedSections.has(endpointId);
     const borderColor = getEndpointBorderColor(endpoint.name);
-    const isActive = activeEndpoint === endpoint.id;
+    const isActive = activeEndpoint === endpointId;
     
     return (
       <div 
-        key={endpoint.id}
-        ref={el => endpointRefs.current[endpoint.id] = el}
+        key={endpointId}
+        ref={el => endpointRefs.current[endpointId] = el}
         className={`bg-white rounded-2xl p-8 mb-8 shadow-xl border-t-4 ${borderColor} ${isNested ? 'ml-8' : ''} ${
           isActive ? 'ring-4 ring-indigo-400 ring-opacity-50' : ''
         } transition-all duration-300`}
@@ -223,7 +247,7 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
             {endpoint.name}
           </h2>
           <span className="text-xs text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
-            ID: {endpoint.id}
+            ID: {endpointId}
           </span>
         </div>
 
@@ -268,7 +292,7 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
               URL Variables
             </h3>
             <div className="bg-amber-50 p-4 rounded-lg">
-              {endpoint.request.url.variable.map((variable: { key: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | null | undefined; value: any; }, idx: React.Key | null | undefined) => (
+              {endpoint.request.url.variable.map((variable: any, idx: number) => (
                 <div key={idx} className="flex justify-between py-2 border-b border-amber-200 last:border-b-0">
                   <span className="font-semibold text-amber-800 font-mono">{variable.key}</span>
                   <span className="text-amber-800 font-mono bg-white px-2 py-1 rounded text-sm">
@@ -316,7 +340,7 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
                   <div className="mt-4">
                     <h4 
                       className="flex items-center gap-2 cursor-pointer select-none text-gray-700 hover:text-indigo-600 transition-colors"
-                      onClick={() => toggleCollapse(endpoint.id)}
+                      onClick={() => toggleCollapse(endpointId)}
                     >
                       {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       Response Headers
@@ -326,7 +350,7 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {endpoint.response[0].header
                             .filter((h: { key: string; }) => ['Content-Type', 'Content-Length', 'Date', 'ETag'].includes(h.key))
-                            .map((header: { key: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | null | undefined; value: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | null | undefined; }, idx: React.Key | null | undefined) => (
+                            .map((header: any, idx: number) => (
                               <div key={idx} className="bg-gray-50 p-2 rounded text-sm border-l-2 border-gray-400">
                                 <span className="font-semibold text-gray-700">{header.key}:</span>{' '}
                                 <span className="text-gray-600 font-mono text-xs break-all">{header.value}</span>
@@ -372,18 +396,19 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
   };
 
   const renderItems = (items: any[], isNested: boolean = false) => {
-    return items.map(item => {
+    return items.map((item, index) => {
+      const itemId = getEndpointId(item, index);
       
       if (item.item && Array.isArray(item.item)) {
-        
-        const isExpanded = expandedFolders.has(item.id);
+        // Nested structure (folder)
+        const isExpanded = expandedFolders.has(itemId);
         const folderEndpointCount = countEndpoints(item.item);
         
         return (
-          <div key={item.id} className={`${isNested ? 'ml-8' : ''}`}>
+          <div key={itemId} className={`${isNested ? 'ml-8' : ''}`}>
             <div 
               className="bg-white rounded-lg p-4 mb-4 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => toggleFolder(item.id)}
+              onClick={() => toggleFolder(itemId)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -403,8 +428,8 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
           </div>
         );
       } else if (item.request) {
-        
-        return renderEndpoint(item, isNested);
+        // Direct endpoint
+        return renderEndpoint(item, index, isNested);
       }
       
       return null;
@@ -435,10 +460,8 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
 
   if (!snapshot) return null;
 
-  
-  const totalEndpoints = snapshot.items.reduce((total, item) => {
-    return total + (item.item ? countEndpoints(item.item) : 0);
-  }, 0);
+  const totalEndpoints = countAllEndpoints();
+  const isFlatStructure = isDataFlat();
 
   return (
     <div className="min-h-screen">
@@ -467,7 +490,12 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-indigo-600">
                   <h3 className="text-gray-800 font-semibold mb-2">Total Items</h3>
-                  <p className="text-gray-600">{snapshot.items.length} collection with {totalEndpoints} endpoints</p>
+                  <p className="text-gray-600">
+                    {isFlatStructure 
+                      ? `${totalEndpoints} endpoints` 
+                      : `${snapshot.items.length} collection${snapshot.items.length > 1 ? 's' : ''} with ${totalEndpoints} endpoints`
+                    }
+                  </p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-indigo-600">
                   <h3 className="text-gray-800 font-semibold mb-2">Snapshot ID</h3>
@@ -477,28 +505,42 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
             </div>
 
             {/* Collections and Endpoints */}
-            {snapshot.items.map(collection => {
-              if (!collection.item || collection.item.length === 0) {
+            {isFlatStructure ? (
+              // Render flat structure (auth-like)
+              <div>
+                <div className="bg-white/90 rounded-lg p-4 mb-4 shadow-md">
+                  <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <FileText className="h-6 w-6 text-indigo-600" />
+                    {snapshot.collection_name} Endpoints
+                  </h2>
+                </div>
+                {renderItems(snapshot.items)}
+              </div>
+            ) : (
+              // Render nested structure (vaska-like)
+              snapshot.items.map((collection, collectionIndex) => {
+                if (!collection.item || collection.item.length === 0) {
+                  return (
+                    <div key={getEndpointId(collection, collectionIndex)} className="bg-white rounded-2xl p-8 mb-8 shadow-xl">
+                      <h2 className="text-xl font-semibold text-gray-800 mb-4">{collection.name}</h2>
+                      <p className="text-gray-500 italic">No endpoints available in this collection</p>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={collection.id} className="bg-white rounded-2xl p-8 mb-8 shadow-xl">
-                    <h2 className="text-xl font-semibold text-gray-800 mb-4">{collection.name}</h2>
-                    <p className="text-gray-500 italic">No endpoints available in this collection</p>
+                  <div key={getEndpointId(collection, collectionIndex)}>
+                    <div className="bg-white/90 rounded-lg p-4 mb-4 shadow-md">
+                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <FileText className="h-6 w-6 text-indigo-600" />
+                        {collection.name}
+                      </h2>
+                    </div>
+                    {renderItems(collection.item)}
                   </div>
                 );
-              }
-
-              return (
-                <div key={collection.id}>
-                  <div className="bg-white/90 rounded-lg p-4 mb-4 shadow-md">
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                      <FileText className="h-6 w-6 text-indigo-600" />
-                      {collection.name}
-                    </h2>
-                  </div>
-                  {renderItems(collection.item)}
-                </div>
-              );
-            })}
+              })
+            )}
           </div>
         </div>
 
@@ -515,25 +557,37 @@ const EndPointDetails: React.FC<{ snapshotId: string; collectionId: string; sear
           </div>
           
           <div className="p-4">
-            {snapshot.items.map(collection => {
-              if (!collection.item || collection.item.length === 0) {
+            {isFlatStructure ? (
+              // Render flat structure navigation
+              <div className="mb-4">
+                <div className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-indigo-600" />
+                  {snapshot.collection_name}
+                </div>
+                {renderMinimapItems(snapshot.items)}
+              </div>
+            ) : (
+              // Render nested structure navigation
+              snapshot.items.map((collection, collectionIndex) => {
+                if (!collection.item || collection.item.length === 0) {
+                  return (
+                    <div key={getEndpointId(collection, collectionIndex)} className="mb-4">
+                      <div className="text-sm text-gray-500 italic p-2">{collection.name} (empty)</div>
+                    </div>
+                  );
+                }
+                
                 return (
-                  <div key={collection.id} className="mb-4">
-                    <div className="text-sm text-gray-500 italic p-2">{collection.name} (empty)</div>
+                  <div key={getEndpointId(collection, collectionIndex)} className="mb-4">
+                    <div className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-indigo-600" />
+                      {collection.name}
+                    </div>
+                    {renderMinimapItems(collection.item)}
                   </div>
                 );
-              }
-              
-              return (
-                <div key={collection.id} className="mb-4">
-                  <div className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-indigo-600" />
-                    {collection.name}
-                  </div>
-                  {renderMinimapItems(collection.item)}
-                </div>
-              );
-            })}
+              })
+            )}
           </div>
         </div>
       </div>
