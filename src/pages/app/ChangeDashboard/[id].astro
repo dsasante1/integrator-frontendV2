@@ -1,0 +1,16 @@
+---
+import Layout from '../../../layout/Layout.astro';
+import ChangesDashboard from '../../../components/ChangesDashboard';
+const { id } = Astro.params;
+
+const url = new URL(Astro.request.url);
+const collectionId = url.searchParams.get('collectionId');
+const search = url.searchParams.get('search');
+
+if (!id) {
+  return Astro.redirect('/404');
+}
+---
+<Layout title="ChangeDashboard">
+<ChangesDashboard collectionId={id} client:load />
+</Layout>

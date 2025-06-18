@@ -3,6 +3,9 @@ import Layout from '../../../layout/Layout.astro';
 import CollectionSnapshotsPage from '../../../components/CollectionSnapshotsPage';
 const { id } = Astro.params;
 const url = new URL(Astro.request.url);
+if (!id) {
+  return Astro.redirect('/404');
+}
 ---
 
 <Layout title="Collection Snapshot">
