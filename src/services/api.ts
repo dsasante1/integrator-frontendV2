@@ -156,19 +156,19 @@ export const snapshotService = {
 // collection changes
 export const changesService = {
   getSummary: async (collectionId: string) => {
-    const response = await api.get('/collections/:collectionId/changes/summary/:oldSnapshot/:newSnapshot')
+    const response = await api.get(`/collections/${collectionId}/changes/summary/:oldSnapshot/:newSnapshot`)
     return response.data;
   },
   getChanges: async (collectionId: string, params?: any) => {
-     const response = await api.get('/collections/:collectionId/changes')
+     const response = await api.get(`/collections/${collectionId}/changes`)
     return response.data;
   },
   getHierarchy: async (collectionId: string) => {
-      const response = await api.get('/collections/:id/snapshots/:snapshotId/hierarchy')
+      const response = await api.get(`/collections/${collectionId}/snapshots/:snapshotId/hierarchy`)
     return response.data;
   },
   getImpactAnalysis: async (collectionId: string) => {
-      const response = await api.get('/collections/:collectionId/snapshots/:snapshotId/impact-analysis')
+      const response = await api.get(`/collections/${collectionId}/snapshots/:snapshotId/impact-analysis`)
     return response.data;
   }
 };

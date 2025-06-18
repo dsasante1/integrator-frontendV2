@@ -468,7 +468,7 @@ const IntegratorApp: React.FC = () => {
                                     View Snapshots
                                         </a>
                                    <a
-                                href={`/app/collection/${collection.id}`}
+                                href={`/app/changedashboard/${collection.id}`}
                                       className="block w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 hover:text-gray-900"
                                   >
                                     View Collection History
