@@ -367,32 +367,33 @@ const SummaryDashboard = ({ summary }) => {
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
       <h2 className="text-xl font-bold text-gray-800 mb-4">Impact Analysis Summary</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-2">
-            <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-            <span className="text-2xl font-bold text-gray-800">{summary.total_breaking}</span>
+      <div className="flex justify-center items-center mb-10">
+        <div className="grid grid-cols-3 gap-16 max-w-4xl">
+          <div className="text-center">
+            <div className="flex items-center justify-center mb-2">
+              <AlertCircle className="h-8 w-8 text-red-500 mr-2" />
+              <span className="text-4xl font-bold text-gray-800">{summary.total_breaking}</span>
+            </div>
+            <p className="text-base text-gray-600">Breaking Changes</p>
           </div>
-          <p className="text-sm text-gray-600">Breaking Changes</p>
-        </div>
-        
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-2">
-            <Lock className="h-5 w-5 text-yellow-500 mr-2" />
-            <span className="text-2xl font-bold text-gray-800">{summary.total_security}</span>
+          
+          <div className="text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Lock className="h-8 w-8 text-yellow-500 mr-2" />
+              <span className="text-4xl font-bold text-gray-800">{summary.total_security}</span>
+            </div>
+            <p className="text-base text-gray-600">Security Changes</p>
           </div>
-          <p className="text-sm text-gray-600">Security Changes</p>
-        </div>
-        
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-2">
-            <Package className="h-5 w-5 text-blue-500 mr-2" />
-            <span className="text-2xl font-bold text-gray-800">{summary.total_data}</span>
+          
+          <div className="text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Package className="h-8 w-8 text-blue-500 mr-2" />
+              <span className="text-4xl font-bold text-gray-800">{summary.total_data}</span>
+            </div>
+            <p className="text-base text-gray-600">Data Changes</p>
           </div>
-          <p className="text-sm text-gray-600">Data Changes</p>
         </div>
       </div>
-      
     </div>
   );
 };
