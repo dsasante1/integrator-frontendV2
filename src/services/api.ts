@@ -159,7 +159,7 @@ export const changesService = {
     const response = await api.get(`/collections/${collectionId}/change/summary`)
     return response.data;
   },
-  getChanges: async (collectionId: string, params?: any) => {
+  getChanges: async (collectionId: string) => {
      const response = await api.get(`/collections/${collectionId}/changes`)
     return response.data;
   },
@@ -175,6 +175,12 @@ export const changesService = {
     const response = await api.get(`/collections/${collectionId}/snapshot-id`);
     return response.data;
   },
+
+  compareSnapshots: async (collectionId: string, snapShotIdOne?: number, snapShotIdTwo?: number) => {
+    const response = await api.get(`/collections/snapshot/compare/${collectionId}`,  { params: {snapShotIdOne, snapShotIdTwo},
+    })
+    return response.data;
+  }
 };
 
 

@@ -74,6 +74,7 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
   const [impactData, setImpactData] = useState<any>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
+  const [fetchCompareSnapshot, setCompareSnapshot] = useState()
 
   useEffect(() => {
     loadSummaryData();
@@ -134,7 +135,7 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       if (resourceFilter) params.append('resource', resourceFilter);
       if (pathFilter) params.append('path', pathFilter);
       
-      const data = await changesService.getChanges(collectionId, params);
+      const data = await changesService.getChanges(collectionId);
       setChanges(data.changes);
     } catch (err) {
       setError('Failed to load changes');
@@ -173,6 +174,7 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       setError('Failed to load impact analysis');
     }
   };
+
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -312,7 +314,7 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-8">
-            {(['summary', 'timeline', 'hierarchy', 'impact', 'compare'] as const).map(view => (
+            {(['summary', 'timeline', 'hierarchy', 'impact'] as const).map(view => (
               <button
                 key={view}
                 onClick={() => setCurrentView(view)}
@@ -553,45 +555,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
          <ImpactAnalysisView impactData={impactData} />
           )
         }
-
-        {/* Compare View - Fixed */}
-        {currentView === 'compare' && !fetchingSnapshot && (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Compare Snapshots</h2>
-            </div>
-            <div className="p-8">
-              <div className="flex gap-8 mb-8">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700">From Snapshot:</label>
-                  <select className="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                    {snapshot && snapshot.map((id, index) => (
-                      <option key={id} value={id}>
-                        Snapshot {id} {index === 0 ? '(Latest)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700">To Snapshot:</label>
-                  <select className="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                    {snapshot && snapshot.map((id, index) => (
-                      <option key={id} value={id}>
-                        Snapshot {id} {index === 0 ? '(Latest)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button className="px-4 py-2 text-sm font-medium text-white bg-black-500 rounded-md hover:bg-black-600">
-                  Compare
-                </button>
-              </div>
-              <div className="text-gray-500 text-center">
-                Comparison results will appear here
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );
@@ -613,33 +576,5 @@ const SummaryCard: React.FC<{
     <div className="text-sm text-gray-600">{label}</div>
   </div>
 );
-
-// Impact Card Component
-// const ImpactCard: React.FC<{
-//   title: string;
-//   count: number;
-//   icon: React.ReactNode;
-//   bgColor: string;
-//   textColor: string;
-//   items: ImpactItem[];
-// }> = ({ title, count, icon, bgColor, textColor, items }) => (
-//   <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-//     <div className={`px-6 py-4 ${bgColor} ${textColor} flex items-center gap-2`}>
-//       {icon}
-//       <span className="font-semibold">{title} ({count})</span>
-//     </div>
-//     <div className="p-6">
-//       {items.map((item, index) => (
-//         <div key={index} className="py-3 border-b border-gray-200 last:border-0">
-//           <div className="font-medium text-gray-900">{item.change.human_path}:</div>
-//           <div className="text-sm text-gray-700">{item.impact}</div>
-//           {item.suggestions && item.suggestions[0] && (
-//             <div className="text-sm text-gray-500 mt-1">{item.suggestions[0]}</div>
-//           )}
-//         </div>
-//       ))}
-//     </div>
-//   </div>
-// );
 
 export default ChangesDashboard;
