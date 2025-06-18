@@ -376,11 +376,11 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
                 label="Deleted"
               />
               <SummaryCard
-                icon={<Minus className="h-6 w-6" />}
-                iconBg="bg-red-100"
-                iconColor="text-red-600"
-                value={summary?.changes_by_type.deleted || 0}
-                label="Deleted"
+                icon={<BarChart3 className="h-6 w-6" />}
+                iconBg="bg-orange-100"
+                iconColor="text-orange-600"
+                value={summary?.affected_endpoints|| 0}
+                label="Endpoints Affected"
               />
             </div>
 
