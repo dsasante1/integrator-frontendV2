@@ -156,7 +156,7 @@ export const snapshotService = {
 // collection changes
 export const changesService = {
   getSummary: async (collectionId: string) => {
-    const response = await api.get(`/collections/${collectionId}/changes/summary/:oldSnapshot/:newSnapshot`)
+    const response = await api.get(`/collections/${collectionId}/change/summary`)
     return response.data;
   },
   getChanges: async (collectionId: string, params?: any) => {

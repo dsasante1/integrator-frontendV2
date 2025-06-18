@@ -162,6 +162,10 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
   };
 
   const loadImpactAnalysis = async () => {
+     if (!selectedSnapshotId) {
+      setError('No snapshot selected for impact analysis');
+      return;
+    }
     try {
       const data = await changesService.getImpactAnalysis(collectionId, selectedSnapshotId);
       setImpactData(data);
