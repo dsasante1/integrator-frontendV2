@@ -19,6 +19,9 @@ import {
   Loader2
 } from 'lucide-react';
 
+// Updated interface - snapshot is now directly an array of numbers
+interface Snapshot extends Array<number> {}
+
 interface Change {
   change_type: 'added' | 'modified' | 'deleted';
   path: string;
@@ -50,7 +53,9 @@ interface ImpactItem {
 }
 
 export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectionId }) => {
- const [currentView, setCurrentView] = useState<'summary' | 'timeline' | 'hierarchy' | 'impact' | 'compare'>('summary');
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<number | null>(null);
+  const [currentView, setCurrentView] = useState<'summary' | 'timeline' | 'hierarchy' | 'impact' | 'compare'>('summary');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -68,10 +73,12 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
   const [hierarchy, setHierarchy] = useState<TreeNode | null>(null);
   const [impactData, setImpactData] = useState<any>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
 
   useEffect(() => {
     loadSummaryData();
     loadRecentChanges();
+    getCollectionSnapshots();
   }, [collectionId]);
 
   useEffect(() => {
@@ -86,7 +93,29 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
         loadImpactAnalysis();
         break;
     }
-  }, [currentView]);
+  }, [currentView, selectedSnapshotId]);
+
+  const getCollectionSnapshots = async () => {
+    setFetchingSnapshot(true);
+    try {
+      const response = await changesService.getCollectionSnapshots(collectionId);
+      const snapshotData = response.data || response;
+
+      setSnapshot(snapshotData);
+
+      if (snapshotData && snapshotData.length > 0) {
+        setSelectedSnapshotId(snapshotData[0]);
+      } else {
+        setSelectedSnapshotId(null);
+        setError('No snapshots available for this collection');
+      }
+    } catch (err) {
+      setError('Failed to load collection snapshots');
+      setSelectedSnapshotId(null);
+    } finally {
+      setFetchingSnapshot(false);
+    }
+  };
 
   const loadSummaryData = async () => {
     try {
@@ -115,12 +144,17 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
   };
 
   const loadTimelineData = async () => {
-    // Implementation for timeline data
+    // TODO get time line data and chart
   };
 
   const loadHierarchyData = async () => {
+    if (!selectedSnapshotId) {
+      setError('No snapshot selected for hierarchy view');
+      return;
+    }
+
     try {
-      const data = await changesService.getHierarchy(collectionId);
+      const data = await changesService.getHierarchy(collectionId, selectedSnapshotId);
       setHierarchy(data);
     } catch (err) {
       setError('Failed to load hierarchy');
@@ -129,7 +163,7 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
 
   const loadImpactAnalysis = async () => {
     try {
-      const data = await changesService.getImpactAnalysis(collectionId);
+      const data = await changesService.getImpactAnalysis(collectionId, selectedSnapshotId);
       setImpactData(data);
     } catch (err) {
       setError('Failed to load impact analysis');
@@ -226,16 +260,28 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center gap-3">
-              <Zap className="h-6 w-6 text-orange-500" />
+              <Zap className="h-6 w-6 text-black-500" />
               <h1 className="text-xl font-semibold text-gray-900">Changes Dashboard</h1>
             </div>
             
             <div className="flex items-center gap-3">
-              <select className="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                <option>Auth API Collection</option>
-                <option>User Service API</option>
-                <option>Payment Gateway API</option>
-              </select>
+              
+              {/* Snapshot Selector - Fixed */}
+              {snapshot && snapshot.length > 0 && (
+                <select
+                  value={selectedSnapshotId || ''}
+                  onChange={(e) => setSelectedSnapshotId(Number(e.target.value))}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  disabled={fetchingSnapshot}
+                >
+                  <option value="">Select Snapshot</option>
+                  {snapshot.map((id, index) => (
+                    <option key={id} value={id}>
+                      Snapshot {id} {index === 0 ? '(Latest)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
               
               <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                 <Download className="h-4 w-4" />
@@ -243,8 +289,12 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
               </button>
               
               <button 
-                onClick={() => { loadSummaryData(); loadRecentChanges(); }}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600"
+                onClick={() => { 
+                  loadSummaryData(); 
+                  loadRecentChanges(); 
+                  getCollectionSnapshots();
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-black-500 rounded-md hover:bg-black-600"
               >
                 <RefreshCw className="h-4 w-4" />
                 Refresh
@@ -264,7 +314,7 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
                 onClick={() => setCurrentView(view)}
                 className={`py-4 border-b-2 font-medium text-sm capitalize transition-colors ${
                   currentView === view 
-                    ? 'border-orange-500 text-orange-600' 
+                    ? 'border-black-500 text-black-600' 
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -275,10 +325,32 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
         </div>
       </nav>
 
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 text-red-400" />
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Loading State */}
+        {fetchingSnapshot && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-600">Loading snapshots...</span>
+          </div>
+        )}
+
         {/* Summary View */}
-        {currentView === 'summary' && (
+        {currentView === 'summary' && !fetchingSnapshot && (
           <div className="space-y-8">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -304,11 +376,11 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
                 label="Deleted"
               />
               <SummaryCard
-                icon={<BarChart3 className="h-6 w-6" />}
-                iconBg="bg-orange-100"
-                iconColor="text-orange-600"
-                value={summary?.affected_endpoints.length || 0}
-                label="Endpoints Affected"
+                icon={<Minus className="h-6 w-6" />}
+                iconBg="bg-red-100"
+                iconColor="text-red-600"
+                value={summary?.changes_by_type.deleted || 0}
+                label="Deleted"
               />
             </div>
 
@@ -398,7 +470,7 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
         )}
 
         {/* Timeline View */}
-        {currentView === 'timeline' && (
+        {currentView === 'timeline' && !fetchingSnapshot && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-900">Change Timeline</h2>
@@ -418,25 +490,62 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
         )}
 
         {/* Hierarchy View */}
-        {currentView === 'hierarchy' && (
+        {currentView === 'hierarchy' && !fetchingSnapshot && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-900">Change Hierarchy</h2>
-              <button
-                onClick={() => setExpandedNodes(new Set())}
-                className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md"
-              >
-                Expand All
-              </button>
+              <div className="flex items-center gap-3">
+                {!selectedSnapshotId && (
+                  <span className="text-sm text-red-600">Please select a snapshot</span>
+                )}
+                <button
+                  onClick={() => setExpandedNodes(new Set())}
+                  className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md"
+                >
+                  Collapse All
+                </button>
+                <button
+                  onClick={() => {
+                    if (hierarchy) {
+                      const getAllNodeIds = (node: TreeNode): string[] => {
+                        const ids = [`node-${node.name}`];
+                        if (node.children) {
+                          node.children.forEach(child => {
+                            ids.push(...getAllNodeIds(child));
+                          });
+                        }
+                        return ids;
+                      };
+                      setExpandedNodes(new Set(getAllNodeIds(hierarchy)));
+                    }
+                  }}
+                  className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md"
+                >
+                  Expand All
+                </button>
+              </div>
             </div>
             <div className="p-4">
-              {hierarchy && renderTreeNode(hierarchy)}
+              {selectedSnapshotId ? (
+                hierarchy ? (
+                  renderTreeNode(hierarchy)
+                ) : (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    <span className="ml-2 text-gray-600">Loading hierarchy...</span>
+                  </div>
+                )
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  Please select a snapshot to view the hierarchy
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Impact Analysis View */}
-        {currentView === 'impact' && impactData && (
+        {currentView === 'impact' && !fetchingSnapshot && impactData && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <ImpactCard
               title="Breaking Changes"
@@ -465,8 +574,8 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
           </div>
         )}
 
-        {/* Compare View */}
-        {currentView === 'compare' && (
+        {/* Compare View - Fixed */}
+        {currentView === 'compare' && !fetchingSnapshot && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">Compare Snapshots</h2>
@@ -476,18 +585,24 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium text-gray-700">From Snapshot:</label>
                   <select className="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                    <option>2025-06-16 10:00 AM</option>
-                    <option>2025-06-15 02:30 PM</option>
+                    {snapshot && snapshot.map((id, index) => (
+                      <option key={id} value={id}>
+                        Snapshot {id} {index === 0 ? '(Latest)' : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium text-gray-700">To Snapshot:</label>
                   <select className="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                    <option>2025-06-16 06:00 PM (Latest)</option>
-                    <option>2025-06-16 02:00 PM</option>
+                    {snapshot && snapshot.map((id, index) => (
+                      <option key={id} value={id}>
+                        Snapshot {id} {index === 0 ? '(Latest)' : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <button className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600">
+                <button className="px-4 py-2 text-sm font-medium text-white bg-black-500 rounded-md hover:bg-black-600">
                   Compare
                 </button>
               </div>
