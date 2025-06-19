@@ -180,6 +180,18 @@ export const changesService = {
     const response = await api.get(`/collections/snapshot/compare/${collectionId}`,  { params: {snapShotIdOne, snapShotIdTwo},
     })
     return response.data;
+  },
+
+  getSnapshotDiff: async (collectionId: string, snapshotId: number) => {
+     const response = await api.get(`/collections/${collectionId}/changes/diff/${snapshotId}`)
+    return response.data;
+
+  },
+
+  getSnapshotID: async (collectionId: string) => {
+     const response = await api.get(`/collections/${collectionId}/changes/diff/snapshotId`)
+    return response.data;
+
   }
 };
 

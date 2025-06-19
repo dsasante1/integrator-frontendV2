@@ -19,6 +19,7 @@ import {
   Loader2
 } from 'lucide-react';
 import ImpactAnalysisView from './ChangeImpactAnalysis';
+import DisplaySnapshotDiff from './DisplaySnapshotDiff';
 
 interface Snapshot extends Array<number> {}
 
@@ -52,10 +53,47 @@ interface ImpactItem {
   suggestions?: string[];
 }
 
+interface DiffDetail {
+  id: number;
+  collection_id: string;
+  old_snapshot_id: number;
+  new_snapshot_id: number;
+  change_type: 'added' | 'deleted' | 'modified';
+  path: string;
+  modification: string;
+  created_at: string;
+  human_path: string;
+  path_segments: string[];
+  endpoint_name?: string;
+  resource_type: 'request' | 'response' | 'endpoint' | 'collection';
+  old_value: any;
+  new_value: any;
+}
+
+interface DiffResponse {
+  old_snapshot_id: number;
+  new_snapshot_id: number;
+  collection_id: string;
+  changes: DiffDetail[];
+  summary: {
+    total_changes: number;
+    changes_by_type: {
+      added: number;
+      deleted: number;
+      modified: number;
+    };
+    affected_endpoints: string[];
+  };
+}
+
 export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectionId }) => {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<number | null>(null);
-  const [currentView, setCurrentView] = useState<'summary' | 'timeline' | 'hierarchy' | 'impact' | 'compare'>('summary');
+  const [currentView, setCurrentView] = useState<'summary' |'history'| 'timeline' | 'hierarchy' | 'impact' | 'compare'>('summary');
+  const [diffData, setDiffData] = useState<DiffResponse | null>(null);
+const [diffLoading, setDiffLoading] = useState(false);
+const [diffError, setDiffError] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -82,19 +120,26 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
     getCollectionSnapshots();
   }, [collectionId]);
 
-  useEffect(() => {
-    switch (currentView) {
-      case 'timeline':
-        loadTimelineData();
-        break;
-      case 'hierarchy':
-        loadHierarchyData();
-        break;
-      case 'impact':
-        loadImpactAnalysis();
-        break;
-    }
-  }, [currentView, selectedSnapshotId]);
+ useEffect(() => {
+  switch (currentView) {
+    case 'timeline':
+      loadTimelineData();
+      break;
+    case 'hierarchy':
+      loadHierarchyData();
+      break;
+    case 'impact':
+      loadImpactAnalysis();
+      break;
+    case 'history':
+      if (selectedSnapshotId) {
+        loadSnapshotDiff(selectedSnapshotId);
+      } else {
+        setDiffData(null);
+      }
+      break;
+  }
+}, [currentView, selectedSnapshotId]);
 
   const getCollectionSnapshots = async () => {
     setFetchingSnapshot(true);
@@ -115,6 +160,20 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       setSelectedSnapshotId(null);
     } finally {
       setFetchingSnapshot(false);
+    }
+  };
+
+    const loadSnapshotDiff = async (snapshotId: number) => {
+    setDiffLoading(true);
+    setDiffError(null);
+    try {
+      const data = await changesService.getSnapshotDiff(collectionId, snapshotId);
+      setDiffData(data);
+    } catch (err) {
+      setDiffError('Failed to load snapshot changes. This might be the first snapshot.');
+      setDiffData(null);
+    } finally {
+      setDiffLoading(false);
     }
   };
 
@@ -144,8 +203,8 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
     }
   };
 
-  const loadTimelineData = async () => {
-    // TODO get time line data and chart
+    const loadTimelineData = async () => {
+    //TODO
   };
 
   const loadHierarchyData = async () => {
@@ -314,7 +373,7 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-8">
-            {(['summary', 'timeline', 'hierarchy', 'impact'] as const).map(view => (
+            {(['summary', 'history', 'timeline', 'hierarchy', 'impact'] as const).map(view => (
               <button
                 key={view}
                 onClick={() => setCurrentView(view)}
@@ -474,7 +533,13 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
             </div>
           </div>
         )}
-
+          {currentView === 'history' && !fetchingSnapshot && (
+            <DisplaySnapshotDiff 
+              diffData={diffData}
+              loading={diffLoading}
+              error={diffError}
+            />
+          )}
         {/* Timeline View */}
         {currentView === 'timeline' && !fetchingSnapshot && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">

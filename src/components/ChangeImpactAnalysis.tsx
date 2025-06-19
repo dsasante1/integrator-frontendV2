@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { AlertCircle, Lock, Package, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, Minus, Edit, Circle, Code, Shield, Clock, GitBranch, Database, Zap } from 'lucide-react';
 
-// Interface definitions (keeping all the existing interfaces)
 interface ImpactItem {
   change: { human_path: string };
   impact: string;
@@ -272,7 +271,6 @@ const SummaryDashboard = ({ summary }) => {
   );
 };
 
-// Main Component with Carousel
 const ImpactAnalysisView = ({ impactData }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   
