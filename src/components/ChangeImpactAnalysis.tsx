@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
-import { AlertCircle, Lock, Package, ChevronDown, ChevronUp, AlertTriangle, FileText, Zap, Code, Database, Shield, Clock, Hash, GitBranch, TrendingUp, Plus, Minus, Edit, Circle } from 'lucide-react';
+import { AlertCircle, Lock, Package, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, Minus, Edit, Circle, Code, Shield, Clock, GitBranch, Database, Zap } from 'lucide-react';
 
+// Interface definitions (keeping all the existing interfaces)
 interface ImpactItem {
   change: { human_path: string };
   impact: string;
   suggestions?: string[];
 }
 
-
-// Main response interface
 export interface ImpactAnalysisResponse {
   collection_id: string;
   snapshot_id: number;
@@ -19,7 +18,6 @@ export interface ImpactAnalysisResponse {
   summary: Summary;
 }
 
-// Change item interface (for breaking, security, and data changes)
 export interface ChangeItem {
   change: Change;
   impact: string;
@@ -27,14 +25,12 @@ export interface ChangeItem {
   suggestions?: string[];
 }
 
-// Cosmetic change item interface
 export interface CosmeticChangeItem {
   change: Change;
   impact: string;
   severity: 'low';
 }
 
-// Change details interface
 export interface Change {
   id: number;
   collection_id: string;
@@ -50,7 +46,6 @@ export interface Change {
   resource_type: ResourceType;
 }
 
-// Summary interface
 export interface Summary {
   total_breaking: number;
   total_security: number;
@@ -60,7 +55,6 @@ export interface Summary {
   recommendation: string;
 }
 
-// Enum types
 export enum ChangeType {
   Added = 'added',
   Deleted = 'deleted',
@@ -80,117 +74,6 @@ export enum ResourceType {
   Response = 'response',
   Endpoint = 'endpoint',
   Collection = 'collection'
-}
-
-// Additional interfaces for masked values (if needed)
-export interface MaskedValue {
-  masked: string;
-  path: string;
-  type: MaskType;
-}
-
-export enum MaskType {
-  Password = 'password',
-  Email = 'email',
-  Token = 'token'
-}
-
-// Stats interface (referenced in the response)
-export interface Stats {
-  masked_values: Record<string, MaskedValue>;
-  fields_masked: number;
-  masked_field_types: {
-    password: number;
-    email: number;
-    token?: number;
-  };
-  processing_time: number;
-  values_masked: number;
-}
-
-// Extended response with additional metadata (if needed)
-export interface ExtendedImpactAnalysisResponse extends ImpactAnalysisResponse {
-  masking_id?: string;
-  masked_at?: string;
-  stats?: Stats;
-}
-
-// Helper type for grouping changes by endpoint
-export type ChangesByEndpoint = Record<string, {
-  breaking: ChangeItem[];
-  security: ChangeItem[];
-  data: ChangeItem[];
-  cosmetic: CosmeticChangeItem[];
-}>;
-
-// Helper function type definitions
-export interface ImpactAnalysisHelpers {
-  getRiskLevel: (score: number) => 'Low Risk' | 'Medium Risk' | 'High Risk';
-  getRiskColor: (score: number) => string;
-  getSeverityColor: (severity: Severity) => string;
-  getChangeTypeIcon: (changeType: ChangeType) => string;
-  groupChangesByEndpoint: (response: ImpactAnalysisResponse) => ChangesByEndpoint;
-  filterChangesBySeverity: (changes: ChangeItem[], severity: Severity) => ChangeItem[];
-  countTotalChanges: (response: ImpactAnalysisResponse) => number;
-}
-
-// Request/Response interfaces for API calls
-export interface GetImpactAnalysisRequest {
-  collection_id: string;
-  old_snapshot_id: number;
-  new_snapshot_id: number;
-}
-
-export interface GetImpactAnalysisParams {
-  collectionId: string;
-  snapshotId: number;
-}
-
-// Error response interface
-export interface ImpactAnalysisError {
-  error: string;
-  message: string;
-  status_code: number;
-}
-
-// Modification parsing interfaces
-export interface ParsedModification {
-  raw?: string;
-  parsed?: any;
-  isHash?: boolean;
-  hashValue?: string;
-}
-
-// Path segment parsing
-export interface ParsedPath {
-  collection?: boolean;
-  itemIndex?: number;
-  property?: string;
-  subProperties?: string[];
-}
-
-// Change impact assessment
-export interface ImpactAssessment {
-  requiresCodeChange: boolean;
-  requiresDocumentationUpdate: boolean;
-  requiresVersioning: boolean;
-  backwardCompatible: boolean;
-  affectedClients: string[];
-  estimatedEffort: 'low' | 'medium' | 'high';
-}
-
-// Filter and sort options
-export interface ImpactAnalysisFilters {
-  severities?: Severity[];
-  changeTypes?: ChangeType[];
-  resourceTypes?: ResourceType[];
-  endpoints?: string[];
-  searchTerm?: string;
-}
-
-export interface ImpactAnalysisSortOptions {
-  field: 'severity' | 'changeType' | 'endpoint' | 'createdAt';
-  direction: 'asc' | 'desc';
 }
 
 const ImpactCard: React.FC<{
@@ -241,7 +124,7 @@ const ImpactCard: React.FC<{
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-md border-2 ${borderColor} overflow-hidden`}>
+    <div className={`bg-white rounded-lg shadow-md border-2 ${borderColor} overflow-hidden w-full`}>
       <div className={`p-6 ${bgColor}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -398,42 +281,100 @@ const SummaryDashboard = ({ summary }) => {
   );
 };
 
-// Main Component
-const ImpactAnalysisView = ({ impactData } ) => {
+// Main Component with Carousel
+const ImpactAnalysisView = ({ impactData }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  const cards = [
+    {
+      title: "Breaking Changes",
+      count: impactData.breaking_changes.length,
+      icon: <AlertCircle className="h-5 w-5" />,
+      bgColor: "bg-red-100",
+      textColor: "text-red-800",
+      borderColor: "border-red-300",
+      items: impactData.breaking_changes
+    },
+    {
+      title: "Security Changes",
+      count: impactData.security_changes.length,
+      icon: <Lock className="h-5 w-5" />,
+      bgColor: "bg-yellow-100",
+      textColor: "text-yellow-800",
+      borderColor: "border-yellow-300",
+      items: impactData.security_changes
+    },
+    {
+      title: "Data Structure Changes",
+      count: impactData.data_changes.length,
+      icon: <Package className="h-5 w-5" />,
+      bgColor: "bg-blue-100",
+      textColor: "text-blue-800",
+      borderColor: "border-blue-300",
+      items: impactData.data_changes
+    }
+  ];
+
+  const goToPrevious = () => {
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + cards.length) % cards.length);
+  };
+
+  const goToNext = () => {
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % cards.length);
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentIndex(index);
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary Dashboard */}
       {impactData.summary && <SummaryDashboard summary={impactData.summary} />}
 
-      {/* Main Impact Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ImpactCard
-          title="Breaking Changes"
-          count={impactData.breaking_changes.length}
-          icon={<AlertCircle className="h-5 w-5" />}
-          bgColor="bg-red-100"
-          textColor="text-red-800"
-          borderColor="border-red-300"
-          items={impactData.breaking_changes}
-        />
-        <ImpactCard
-          title="Security Changes"
-          count={impactData.security_changes.length}
-          icon={<Lock className="h-5 w-5" />}
-          bgColor="bg-yellow-100"
-          textColor="text-yellow-800"
-          borderColor="border-yellow-300"
-          items={impactData.security_changes}
-        />
-        <ImpactCard
-          title="Data Structure Changes"
-          count={impactData.data_changes.length}
-          icon={<Package className="h-5 w-5" />}
-          bgColor="bg-blue-100"
-          textColor="text-blue-800"
-          borderColor="border-blue-300"
-          items={impactData.data_changes}
-        />
+      {/* Carousel Container */}
+      <div className="relative">
+        {/* Navigation Buttons */}
+        <button
+          onClick={goToPrevious}
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 z-10 p-2 rounded-full bg-white shadow-lg hover:bg-gray-100 transition-colors"
+          aria-label="Previous change type"
+        >
+          <ChevronLeft className="h-6 w-6 text-gray-600" />
+        </button>
+        
+        <button
+          onClick={goToNext}
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 z-10 p-2 rounded-full bg-white shadow-lg hover:bg-gray-100 transition-colors"
+          aria-label="Next change type"
+        >
+          <ChevronRight className="h-6 w-6 text-gray-600" />
+        </button>
+
+        {/* Card Display */}
+        <div className="overflow-hidden">
+          <div className="flex transition-transform duration-300 ease-in-out" style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
+            {cards.map((card, index) => (
+              <div key={index} className="w-full flex-shrink-0 px-4">
+                <ImpactCard {...card} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Dot Indicators */}
+        <div className="flex justify-center mt-6 space-x-2">
+          {cards.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`h-2 w-2 rounded-full transition-colors ${
+                index === currentIndex ? 'bg-gray-800' : 'bg-gray-300'
+              }`}
+              aria-label={`Go to ${cards[index].title}`}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Metadata */}
@@ -456,4 +397,5 @@ const ImpactAnalysisView = ({ impactData } ) => {
     </div>
   );
 };
+
 export default ImpactAnalysisView;
