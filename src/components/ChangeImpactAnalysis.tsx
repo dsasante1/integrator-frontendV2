@@ -85,7 +85,6 @@ const ImpactCard: React.FC<{
   items: ImpactItem[];
   borderColor: string; 
 }> = ({ title, count, icon, bgColor, textColor, items, borderColor }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
 
   const toggleItemExpansion = (index: number) => {
@@ -126,26 +125,18 @@ const ImpactCard: React.FC<{
   return (
     <div className={`bg-white rounded-lg shadow-md border-2 ${borderColor} overflow-hidden w-full`}>
       <div className={`p-6 ${bgColor}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className={`p-3 rounded-full ${bgColor} ${textColor}`}>
-              {icon}
-            </div>
-            <div className="ml-4">
-              <h3 className={`text-lg font-semibold ${textColor}`}>{title}</h3>
-              <p className={`text-3xl font-bold ${textColor}`}>{count}</p>
-            </div>
+        <div className="flex items-center">
+          <div className={`p-3 rounded-full ${bgColor} ${textColor}`}>
+            {icon}
           </div>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={`p-2 rounded-full hover:bg-white/20 transition-colors ${textColor}`}
-          >
-            {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-          </button>
+          <div className="ml-4">
+            <h3 className={`text-lg font-semibold ${textColor}`}>{title}</h3>
+            <p className={`text-3xl font-bold ${textColor}`}>{count}</p>
+          </div>
         </div>
       </div>
 
-      {isExpanded && items.length > 0 && (
+      {items.length > 0 && (
         <div className="p-4 max-h-96 overflow-y-auto">
           {items.map((item, index) => (
             <div key={index} className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
