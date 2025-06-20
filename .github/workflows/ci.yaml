@@ -56,23 +56,32 @@ jobs:
             # Set error handling and debugging
             set -e
             echo "Starting deployment at $(date)"
+            echo "Current user: $(whoami)"
+            echo "Home directory: $HOME"
+            
+            # Use home directory instead of /var/www to avoid sudo
+            APP_BASE="$HOME/apps"
+            APP_DIR="$APP_BASE/integrator_frontend"
+            DEPLOY_DIR="$APP_BASE/integrator_frontend_live"
+            LOG_FILE="$HOME/integrator_frontend.log"
+            
+            # Create base apps directory
+            mkdir -p "$APP_BASE"
             
             # Check if application directory exists, create if not
-            if [ ! -d "/var/www/integrator_frontend" ]; then
-              echo "Creating application directory..."
-              sudo mkdir -p /var/www/integrator_frontend
-              sudo chown -R $USER:$USER /var/www/integrator_frontend
-              cd /var/www/integrator_frontend
+            if [ ! -d "$APP_DIR" ]; then
+              echo "Creating application directory at $APP_DIR..."
+              mkdir -p "$APP_DIR"
+              cd "$APP_DIR"
               
               echo "Cloning repository..."
               git clone https://github.com/${{ github.repository }}.git .
             else
               echo "Application directory exists, navigating..."
-              cd /var/www/integrator_frontend
+              cd "$APP_DIR"
             fi
             
             echo "Current directory: $(pwd)"
-            echo "Current user: $(whoami)"
             
             echo "Pulling latest changes..."
             git fetch origin
@@ -93,21 +102,21 @@ jobs:
             
             echo "Creating temporary directory for atomic deployment..."
             TEMP_DIR="/tmp/integrator_frontend-$(date +%s)"
-            mkdir -p $TEMP_DIR
+            mkdir -p "$TEMP_DIR"
             
             echo "Copying application files to temp directory..."
             # Copy the entire dist directory for SSR
-            cp -r dist/ $TEMP_DIR/
+            cp -r dist/ "$TEMP_DIR/"
             # Copy package files for production dependencies
-            cp package.json package-lock.json $TEMP_DIR/
+            cp package.json package-lock.json "$TEMP_DIR/"
             
             echo "Installing production dependencies in temp directory..."
-            cd $TEMP_DIR
+            cd "$TEMP_DIR"
             npm ci --only=production --no-audit --no-fund
-            cd /var/www/integrator_frontend
+            cd "$APP_DIR"
             
             echo "Setting proper permissions..."
-            chmod -R 755 $TEMP_DIR
+            chmod -R 755 "$TEMP_DIR"
             
             echo "Stopping existing application if running..."
             pkill -f "node.*integrator_frontend" || echo "No integrator_frontend process found"
@@ -117,27 +126,25 @@ jobs:
             sleep 3
             
             echo "Performing atomic deployment swap..."
-            DEPLOY_DIR="/var/www/integrator_frontend_live"
             
             # Backup existing deployment if it exists
             if [ -d "$DEPLOY_DIR" ]; then
-              BACKUP_DIR="/var/www/integrator_frontend-backup-$(date +%s)"
+              BACKUP_DIR="$APP_BASE/integrator_frontend-backup-$(date +%s)"
               echo "Backing up current deployment to $BACKUP_DIR"
-              sudo mv "$DEPLOY_DIR" "$BACKUP_DIR"
+              mv "$DEPLOY_DIR" "$BACKUP_DIR"
             fi
             
             # Move new deployment into place
             echo "Moving new deployment to $DEPLOY_DIR"
-            sudo mv $TEMP_DIR $DEPLOY_DIR
-            sudo chown -R $USER:$USER $DEPLOY_DIR
+            mv "$TEMP_DIR" "$DEPLOY_DIR"
             
             # Clean up old backups (keep last 3)
-            cd /var/www
+            cd "$APP_BASE"
             echo "Cleaning up old backups..."
-            sudo find . -maxdepth 1 -name "integrator_frontend-backup-*" -type d | sort -r | tail -n +4 | xargs -r sudo rm -rf
+            find . -maxdepth 1 -name "integrator_frontend-backup-*" -type d | sort -r | tail -n +4 | xargs -r rm -rf
             
             echo "Starting the application..."
-            cd $DEPLOY_DIR
+            cd "$DEPLOY_DIR"
             
             # Verify required files exist
             if [ ! -f "dist/server/entry.mjs" ]; then
@@ -148,12 +155,11 @@ jobs:
             fi
             
             echo "Starting Node.js server..."
-            # Create log directory if it doesn't exist
-            sudo touch /var/log/integrator_frontend.log
-            sudo chown $USER:$USER /var/log/integrator_frontend.log
+            # Create log file in home directory
+            touch "$LOG_FILE"
             
             # Start the application in the background
-            nohup node dist/server/entry.mjs > /var/log/integrator_frontend.log 2>&1 &
+            nohup node dist/server/entry.mjs > "$LOG_FILE" 2>&1 &
             SERVER_PID=$!
             echo "Started server with PID: $SERVER_PID"
             
@@ -163,7 +169,7 @@ jobs:
             # Check if process is still running
             if ! kill -0 $SERVER_PID 2>/dev/null; then
               echo "Server process died! Check logs:"
-              tail -50 /var/log/integrator_frontend.log
+              tail -50 "$LOG_FILE"
               exit 1
             fi
             
@@ -178,7 +184,7 @@ jobs:
                 if [ $i -eq 5 ]; then
                   echo "Application failed to respond after 5 attempts!"
                   echo "Recent logs:"
-                  tail -20 /var/log/integrator_frontend.log
+                  tail -20 "$LOG_FILE"
                   echo "Process status:"
                   ps aux | grep node || echo "No node processes found"
                   exit 1
@@ -188,6 +194,8 @@ jobs:
             done
             
             echo "SSR deployment completed successfully at $(date)"
+            echo "Application running in: $DEPLOY_DIR"
+            echo "Logs available at: $LOG_FILE"
             echo "Server PID: $(pgrep -f 'node.*entry.mjs' || echo 'PID not found')"
             
       - name: Cleanup on VPS
@@ -202,8 +210,10 @@ jobs:
           script: |
             # Clean up temporary files
             echo "Cleaning up temporary files..."
-            sudo rm -rf /tmp/integrator_frontend-* || echo "No temp files to clean"
+            rm -rf /tmp/integrator_frontend-* || echo "No temp files to clean"
             
             # Show final status
             echo "Final application status:"
             ps aux | grep -E "(node|integrator)" | grep -v grep || echo "No application processes found"
+            echo "Application directory: $HOME/apps/integrator_frontend_live"
+            echo "Log file: $HOME/integrator_frontend.log"
