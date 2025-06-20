@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, Lock, Package, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, Minus, Edit, Circle, Code, Shield, Clock, GitBranch, Database, Zap } from 'lucide-react';
+import { AlertCircle, Lock, Package, ChevronDown, ChevronUp, Plus, Minus, Edit, Circle, Code, Shield, Clock, GitBranch, Database, Zap } from 'lucide-react';
 
 interface ImpactItem {
   change: { human_path: string };
@@ -304,66 +304,33 @@ const ImpactAnalysisView = ({ impactData }) => {
     }
   ];
 
-  const goToPrevious = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + cards.length) % cards.length);
-  };
-
-  const goToNext = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % cards.length);
-  };
-
   const goToSlide = (index: number) => {
     setCurrentIndex(index);
   };
 
   return (
     <div className="space-y-6">
-      {/* Summary Dashboard */}
-      {impactData.summary && <SummaryDashboard summary={impactData.summary} />}
-
-      {/* Carousel Container */}
-      <div className="relative">
-        {/* Navigation Buttons */}
-        <button
-          onClick={goToPrevious}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 z-10 p-2 rounded-full bg-white shadow-lg hover:bg-gray-100 transition-colors"
-          aria-label="Previous change type"
-        >
-          <ChevronLeft className="h-6 w-6 text-gray-600" />
-        </button>
-        
-        <button
-          onClick={goToNext}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 z-10 p-2 rounded-full bg-white shadow-lg hover:bg-gray-100 transition-colors"
-          aria-label="Next change type"
-        >
-          <ChevronRight className="h-6 w-6 text-gray-600" />
-        </button>
-
-        {/* Card Display */}
-        <div className="overflow-hidden">
-          <div className="flex transition-transform duration-300 ease-in-out" style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
-            {cards.map((card, index) => (
-              <div key={index} className="w-full flex-shrink-0 px-4">
-                <ImpactCard {...card} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Dot Indicators */}
-        <div className="flex justify-center mt-6 space-x-2">
-          {cards.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              className={`h-2 w-2 rounded-full transition-colors ${
-                index === currentIndex ? 'bg-gray-800' : 'bg-gray-300'
-              }`}
-              aria-label={`Go to ${cards[index].title}`}
-            />
-          ))}
-        </div>
+            {/* Navigation Buttons */}
+      <div className="flex justify-center space-x-4 mt-6">
+        {cards.map((card, index) => (
+          <button
+            key={index}
+            onClick={() => goToSlide(index)}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center space-x-2 ${
+              index === currentIndex 
+                ? `${card.bgColor} ${card.textColor} shadow-md` 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {card.icon}
+            <span>{card.title}</span>
+            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+              index === currentIndex ? 'bg-white bg-opacity-50' : 'bg-gray-300'
+            }`}>
+              {card.count}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Metadata */}
@@ -383,8 +350,19 @@ const ImpactAnalysisView = ({ impactData }) => {
           </div>
         </div>
       </div>
+      {/* Card Display */}
+      <div className="overflow-hidden">
+        <div className="flex transition-transform duration-300 ease-in-out" style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
+          {cards.map((card, index) => (
+            <div key={index} className="w-full flex-shrink-0 px-4">
+              <ImpactCard {...card} />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
+
 
 export default ImpactAnalysisView;

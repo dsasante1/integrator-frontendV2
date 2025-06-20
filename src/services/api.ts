@@ -1,7 +1,14 @@
 import axios from 'axios';
 import type { AxiosError, AxiosResponse } from 'axios';
 
-const BASE_URL = 'http://localhost:8080/integrator/api/v1';
+export const BASE_URL = 'http://localhost:8080/integrator/api/v1';
+
+interface SnapshotDiffParams {
+  pageSize?: number;
+  page?: number;
+  filterType?: string;
+  sortOrder?: string;
+}
 
 // Create axios instance with default config
 const api = axios.create({
@@ -182,17 +189,35 @@ export const changesService = {
     return response.data;
   },
 
-  getSnapshotDiff: async (collectionId: string, snapshotId: number) => {
-     const response = await api.get(`/collections/${collectionId}/changes/diff/${snapshotId}`)
-    return response.data;
 
+
+  getSnapshotDiff: async (
+    collectionId: string, 
+    snapshotId: number, 
+    params?: SnapshotDiffParams
+  ) => {
+    const queryParams = new URLSearchParams();
+    
+    if (params?.pageSize) {
+      queryParams.append('pageSize', params.pageSize.toString());
+    }
+    if (params?.page) {
+      queryParams.append('page', params.page.toString());
+    }
+    if (params?.filterType) {
+      queryParams.append('filterType', params.filterType);
+    }
+    if (params?.sortOrder) {
+      queryParams.append('sortOrder', params.sortOrder);
+    }
+
+    const queryString = queryParams.toString();
+    const url = `/collections/${collectionId}/changes/diff/${snapshotId}${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await api.get(url);
+    return response.data;
   },
 
-  getSnapshotID: async (collectionId: string) => {
-     const response = await api.get(`/collections/${collectionId}/changes/diff/snapshotId`)
-    return response.data;
-
-  }
 };
 
 

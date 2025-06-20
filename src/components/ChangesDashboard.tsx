@@ -21,6 +21,13 @@ import {
 import ImpactAnalysisView from './ChangeImpactAnalysis';
 import DisplaySnapshotDiff from './DisplaySnapshotDiff';
 
+interface SnapshotDiffParams {
+  pageSize?: number;
+  page?: number;
+  filterType?: string;
+  sortOrder?: string;
+}
+
 interface Snapshot extends Array<number> {}
 
 interface Change {
@@ -91,8 +98,8 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<number | null>(null);
   const [currentView, setCurrentView] = useState<'summary' |'history'| 'timeline' | 'hierarchy' | 'impact' | 'compare'>('summary');
   const [diffData, setDiffData] = useState<DiffResponse | null>(null);
-const [diffLoading, setDiffLoading] = useState(false);
-const [diffError, setDiffError] = useState<string | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffError, setDiffError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,69 +114,73 @@ const [diffError, setDiffError] = useState<string | null>(null);
   const [resourceFilter, setResourceFilter] = useState('');
   const [pathFilter, setPathFilter] = useState('');
   
-  //TODO metrics 
   const [hierarchy, setHierarchy] = useState<TreeNode | null>(null);
   const [impactData, setImpactData] = useState<any>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
-  const [fetchCompareSnapshot, setCompareSnapshot] = useState()
 
   useEffect(() => {
-    loadSummaryData();
-    loadRecentChanges();
-    getCollectionSnapshots();
+    if (collectionId) {
+      loadSummaryData();
+      loadRecentChanges();
+      getCollectionSnapshots();
+    }
   }, [collectionId]);
 
- useEffect(() => {
-  switch (currentView) {
-    case 'timeline':
-      loadTimelineData();
-      break;
-    case 'hierarchy':
-      loadHierarchyData();
-      break;
-    case 'impact':
-      loadImpactAnalysis();
-      break;
-    case 'history':
-      if (selectedSnapshotId) {
-        loadSnapshotDiff(selectedSnapshotId);
-      } else {
-        setDiffData(null);
-      }
-      break;
-  }
-}, [currentView, selectedSnapshotId]);
+  useEffect(() => {
+    switch (currentView) {
+      case 'timeline':
+        loadTimelineData();
+        break;
+      case 'hierarchy':
+        loadHierarchyData();
+        break;
+      case 'impact':
+        loadImpactAnalysis();
+        break;
+      case 'history':
+        if (selectedSnapshotId) {
+          loadSnapshotDiff(selectedSnapshotId);
+        } else {
+          setDiffData(null);
+        }
+        break;
+    }
+  }, [currentView, selectedSnapshotId]);
 
   const getCollectionSnapshots = async () => {
     setFetchingSnapshot(true);
+    setError(null);
     try {
       const response = await changesService.getCollectionSnapshots(collectionId);
-      const snapshotData = response.data || response;
+      const snapshotData = response?.data || response;
 
-      setSnapshot(snapshotData);
-
-      if (snapshotData && snapshotData.length > 0) {
+      if (Array.isArray(snapshotData) && snapshotData.length > 0) {
+        setSnapshot(snapshotData);
         setSelectedSnapshotId(snapshotData[0]);
       } else {
+        setSnapshot([]);
         setSelectedSnapshotId(null);
         setError('No snapshots available for this collection');
       }
     } catch (err) {
+      console.error('Failed to load collection snapshots:', err);
       setError('Failed to load collection snapshots');
+      setSnapshot([]);
       setSelectedSnapshotId(null);
     } finally {
       setFetchingSnapshot(false);
     }
   };
 
-    const loadSnapshotDiff = async (snapshotId: number) => {
+  const loadSnapshotDiff = async (snapshotId: number, params?: SnapshotDiffParams) => {
     setDiffLoading(true);
     setDiffError(null);
     try {
-      const data = await changesService.getSnapshotDiff(collectionId, snapshotId);
-      setDiffData(data);
+      const data = await changesService.getSnapshotDiff(collectionId, snapshotId, params);
+      setDiffData(data || null);
     } catch (err) {
+      console.error('Failed to load snapshot diff:', err);
       setDiffError('Failed to load snapshot changes. This might be the first snapshot.');
       setDiffData(null);
     } finally {
@@ -180,9 +191,11 @@ const [diffError, setDiffError] = useState<string | null>(null);
   const loadSummaryData = async () => {
     try {
       const data = await changesService.getSummary(collectionId);
-      setSummary(data);
+      setSummary(data || null);
     } catch (err) {
+      console.error('Failed to load summary:', err);
       setError('Failed to load summary');
+      setSummary(null);
     }
   };
 
@@ -195,16 +208,18 @@ const [diffError, setDiffError] = useState<string | null>(null);
       if (pathFilter) params.append('path', pathFilter);
       
       const data = await changesService.getChanges(collectionId);
-      setChanges(data.changes);
+      setChanges(Array.isArray(data?.changes) ? data.changes : []);
     } catch (err) {
+      console.error('Failed to load changes:', err);
       setError('Failed to load changes');
+      setChanges([]);
     } finally {
       setLoading(false);
     }
   };
 
-    const loadTimelineData = async () => {
-    //TODO
+  const loadTimelineData = async () => {
+    // TODO: Implement timeline data loading
   };
 
   const loadHierarchyData = async () => {
@@ -215,35 +230,42 @@ const [diffError, setDiffError] = useState<string | null>(null);
 
     try {
       const data = await changesService.getHierarchy(collectionId, selectedSnapshotId);
-      setHierarchy(data);
+      setHierarchy(data || null);
     } catch (err) {
+      console.error('Failed to load hierarchy:', err);
       setError('Failed to load hierarchy');
+      setHierarchy(null);
     }
   };
 
   const loadImpactAnalysis = async () => {
-     if (!selectedSnapshotId) {
+    if (!selectedSnapshotId) {
       setError('No snapshot selected for impact analysis');
       return;
     }
     try {
       const data = await changesService.getImpactAnalysis(collectionId, selectedSnapshotId);
-      setImpactData(data);
+      setImpactData(data || null);
     } catch (err) {
+      console.error('Failed to load impact analysis:', err);
       setError('Failed to load impact analysis');
+      setImpactData(null);
     }
   };
 
-
   const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diff = now.getTime() - date.getTime();
 
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return Math.floor(diff / 60000) + ' minutes ago';
-    if (diff < 86400000) return Math.floor(diff / 3600000) + ' hours ago';
-    return date.toLocaleDateString();
+      if (diff < 60000) return 'Just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + ' minutes ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + ' hours ago';
+      return date.toLocaleDateString();
+    } catch (err) {
+      return 'Unknown time';
+    }
   };
 
   const toggleNode = (nodeId: string) => {
@@ -259,8 +281,8 @@ const [diffError, setDiffError] = useState<string | null>(null);
   };
 
   const renderTreeNode = (node: TreeNode, level = 0): JSX.Element => {
-    const hasChildren = node.children && node.children.length > 0;
-    const nodeId = `node-${Math.random().toString(36).substr(2, 9)}`;
+    const hasChildren = node.children && Array.isArray(node.children) && node.children.length > 0;
+    const nodeId = `node-${node.name}-${level}`;
     const isExpanded = expandedNodes.has(nodeId);
 
     return (
@@ -284,7 +306,7 @@ const [diffError, setDiffError] = useState<string | null>(null);
             }
           </span>
           
-          <span className="flex-1">{node.name}</span>
+          <span className="flex-1">{node.name || 'Unnamed'}</span>
           
           {node.change_count && (
             <span className="text-sm text-gray-500">({node.change_count} changes)</span>
@@ -293,7 +315,7 @@ const [diffError, setDiffError] = useState<string | null>(null);
         
         {hasChildren && isExpanded && (
           <div>
-            {node.children!.map(child => renderTreeNode(child, level + 1))}
+            {node.children!.map((child, index) => renderTreeNode(child, level + 1))}
           </div>
         )}
       </div>
@@ -314,9 +336,15 @@ const [diffError, setDiffError] = useState<string | null>(null);
       case 'added': return 'bg-green-100 text-green-800';
       case 'modified': return 'bg-blue-100 text-blue-800';
       case 'deleted': return 'bg-red-100 text-red-800';
-      default: return '';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Safe getters for summary data
+  const getAddedCount = () => summary?.changes_by_type?.added || 0;
+  const getModifiedCount = () => summary?.changes_by_type?.modified || 0;
+  const getDeletedCount = () => summary?.changes_by_type?.deleted || 0;
+  const getAffectedEndpointsCount = () => Array.isArray(summary?.affected_endpoints) ? summary.affected_endpoints.length : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -330,9 +358,8 @@ const [diffError, setDiffError] = useState<string | null>(null);
             </div>
             
             <div className="flex items-center gap-3">
-              
-              {/* Snapshot Selector - Fixed */}
-              {snapshot && snapshot.length > 0 && (
+              {/* Snapshot Selector */}
+              {snapshot && Array.isArray(snapshot) && snapshot.length > 0 && (
                 <select
                   value={selectedSnapshotId || ''}
                   onChange={(e) => setSelectedSnapshotId(Number(e.target.value))}
@@ -414,8 +441,17 @@ const [diffError, setDiffError] = useState<string | null>(null);
           </div>
         )}
 
+        {/* No Collection ID */}
+        {!collectionId && !fetchingSnapshot && (
+          <div className="text-center py-12 text-gray-500">
+            <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Collection Selected</h3>
+            <p>Please select a collection to view changes.</p>
+          </div>
+        )}
+
         {/* Summary View */}
-        {currentView === 'summary' && !fetchingSnapshot && (
+        {currentView === 'summary' && !fetchingSnapshot && collectionId && (
           <div className="space-y-8">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -423,28 +459,28 @@ const [diffError, setDiffError] = useState<string | null>(null);
                 icon={<Plus className="h-6 w-6" />}
                 iconBg="bg-green-100"
                 iconColor="text-green-600"
-                value={summary?.changes_by_type.added || 0}
+                value={getAddedCount()}
                 label="Added"
               />
               <SummaryCard
                 icon={<Clock className="h-6 w-6" />}
                 iconBg="bg-blue-100"
                 iconColor="text-blue-600"
-                value={summary?.changes_by_type.modified || 0}
+                value={getModifiedCount()}
                 label="Modified"
               />
               <SummaryCard
                 icon={<Minus className="h-6 w-6" />}
                 iconBg="bg-red-100"
                 iconColor="text-red-600"
-                value={summary?.changes_by_type.deleted || 0}
+                value={getDeletedCount()}
                 label="Deleted"
               />
               <SummaryCard
                 icon={<BarChart3 className="h-6 w-6" />}
                 iconBg="bg-orange-100"
                 iconColor="text-orange-600"
-                value={summary?.affected_endpoints.length|| 0}
+                value={getAffectedEndpointsCount()}
                 label="Endpoints Affected"
               />
             </div>
@@ -513,7 +549,7 @@ const [diffError, setDiffError] = useState<string | null>(null);
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                   </div>
-                ) : (
+                ) : Array.isArray(changes) && changes.length > 0 ? (
                   changes.map((change, index) => (
                     <div key={index} className="px-6 py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors">
                       <div className="flex items-start gap-4">
@@ -521,27 +557,35 @@ const [diffError, setDiffError] = useState<string | null>(null);
                           {change.change_type}
                         </span>
                         <div className="flex-1">
-                          <div className="font-medium text-gray-900">{change.path}</div>
-                          <div className="text-sm text-gray-600">{change.human_path}</div>
+                          <div className="font-medium text-gray-900">{change.path || 'Unknown path'}</div>
+                          <div className="text-sm text-gray-600">{change.human_path || 'Unknown human path'}</div>
                           <div className="text-xs text-gray-500 mt-1">{formatTimestamp(change.created_at)}</div>
                         </div>
                       </div>
                     </div>
                   ))
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    <AlertCircle className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Changes Found</h3>
+                    <p>There are no recent changes to display.</p>
+                  </div>
                 )}
               </div>
             </div>
           </div>
         )}
-          {currentView === 'history' && !fetchingSnapshot && (
-            <DisplaySnapshotDiff 
-              diffData={diffData}
-              loading={diffLoading}
-              error={diffError}
-            />
-          )}
+
+        {/* History View */}
+        {currentView === 'history' && !fetchingSnapshot && collectionId && (
+          <DisplaySnapshotDiff 
+            collectionId={collectionId}
+            snapshotId={selectedSnapshotId}
+          />
+        )}
+
         {/* Timeline View */}
-        {currentView === 'timeline' && !fetchingSnapshot && (
+        {currentView === 'timeline' && !fetchingSnapshot && collectionId && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-900">Change Timeline</h2>
@@ -554,14 +598,18 @@ const [diffError, setDiffError] = useState<string | null>(null);
             </div>
             <div className="p-8">
               <div className="h-64 flex items-center justify-center text-gray-500">
-                Timeline chart would be rendered here
+                <div className="text-center">
+                  <Clock className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Timeline Coming Soon</h3>
+                  <p>Timeline chart will be rendered here</p>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {/* Hierarchy View */}
-        {currentView === 'hierarchy' && !fetchingSnapshot && (
+        {currentView === 'hierarchy' && !fetchingSnapshot && collectionId && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-900">Change Hierarchy</h2>
@@ -580,7 +628,7 @@ const [diffError, setDiffError] = useState<string | null>(null);
                     if (hierarchy) {
                       const getAllNodeIds = (node: TreeNode): string[] => {
                         const ids = [`node-${node.name}`];
-                        if (node.children) {
+                        if (node.children && Array.isArray(node.children)) {
                           node.children.forEach(child => {
                             ids.push(...getAllNodeIds(child));
                           });
@@ -608,7 +656,9 @@ const [diffError, setDiffError] = useState<string | null>(null);
                 )
               ) : (
                 <div className="text-center py-12 text-gray-500">
-                  Please select a snapshot to view the hierarchy
+                  <FolderOpen className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Snapshot Selected</h3>
+                  <p>Please select a snapshot to view the hierarchy</p>
                 </div>
               )}
             </div>
@@ -616,10 +666,30 @@ const [diffError, setDiffError] = useState<string | null>(null);
         )}
 
         {/* Impact Analysis View */}
-        {currentView === 'impact' && !fetchingSnapshot && impactData && (
-         <ImpactAnalysisView impactData={impactData} />
-          )
-        }
+        {currentView === 'impact' && !fetchingSnapshot && collectionId && (
+          <>
+            {selectedSnapshotId ? (
+              impactData ? (
+                <ImpactAnalysisView impactData={impactData} />
+              ) : (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    <span className="ml-2 text-gray-600">Loading impact analysis...</span>
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                <div className="text-center py-12 text-gray-500">
+                  <BarChart3 className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Snapshot Selected</h3>
+                  <p>Please select a snapshot to view impact analysis</p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </main>
     </div>
   );
