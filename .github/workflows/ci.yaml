@@ -30,6 +30,16 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: Debug build output
+        run: |
+          echo "Listing contents of current directory:"
+          ls -la
+          echo "Checking if dist directory exists:"
+          ls -la dist/ || echo "dist directory not found"
+          echo "Searching for index.html in all directories:"
+          find . -name "index.html" -type f || echo "No index.html found"
+          echo "Listing all directories that might contain build output:"
+          find . -maxdepth 2 -type d -name "*build*" -o -name "*dist*" -o -name "*out*" -o -name "*public*" || echo "No common build directories found"
       - name: Deploy integrator frontend
         run: |
           # Set error handling
