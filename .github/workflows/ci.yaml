@@ -1,82 +1,10 @@
-name: integrator_frontend
+name: test-runner
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
   push:
     branches:
       - main
 jobs:
-  build-and-deploy:
-    if: github.event.pull_request.merged == true || github.event_name == 'push'
+  test:
     runs-on: integrator_frontend
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20.x"
-      - name: Cache yarn dependencies
-        id: cache-yarn
-        uses: actions/cache@v3
-        with:
-          path: ~/.yarn-cache
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-      - name: Install Yarn
-        run: npm install -g yarn
-      - name: Install dependencies
-        run: yarn install
-      - name: Build
-        run: yarn build
-      - name: Deploy integrator frontend
-        run: |
-          # Set error handling
-          set -e
-          echo "Creating temporary directory..."
-          TEMP_DIR="/tmp/integrator_frontend-$(date +%s)"
-          mkdir -p $TEMP_DIR
-          echo "Copying built files to temporary location..."
-          cp -r dist/* $TEMP_DIR/    # Changed from dist/app/* to dist/*
-          echo "Verifying index.html exists in temporary directory..."
-          if [ ! -f "$TEMP_DIR/index.html" ]; then
-            echo "Error: index.html not found in build output!"
-            exit 1
-          fi
-          echo "Setting proper permissions..."
-          sudo chown -R www-data:www-data $TEMP_DIR
-          sudo chmod -R 755 $TEMP_DIR
-          echo "Performing atomic deployment swap..."
-          sudo -s <<EOF
-          # Backup existing deployment if it exists
-          if [ -d "/var/www/integrator_frontend" ]; then
-            mv /var/www/integrator_frontend "/var/www/integrator_frontend-backup-$(date +%s)"
-          fi
-          # Move new deployment into place
-          mv $TEMP_DIR /var/www/integrator_frontend
-          # Clean up old backups (keep last 2)
-          cd /var/www && ls -td integrator_frontend-backup-* | tail -n +3 | xargs -r rm -rf
-          EOF
-          echo "Verifying deployment..."
-          if [ ! -d "/var/www/integrator_frontend" ]; then
-            echo "Deployment directory does not exist!"
-            exit 1
-          fi
-          if [ ! -f "/var/www/integrator_frontend/index.html" ]; then
-            echo "index.html not found in deployment directory!"
-            exit 1
-          fi
-          echo "Testing file permissions..."
-          if ! sudo -u www-data test -r /var/www/integrator_frontend/index.html; then
-            echo "Permission test failed!"
-            exit 1
-          fi
-          echo "Deployment completed successfully at $(date)"
-      - name: Cleanup
-        if: always()
-        run: |
-          # Clean up temporary files if they exist
-          rm -rf /tmp/integrator_frontend-*
+      - run: echo "Runner is working!"
