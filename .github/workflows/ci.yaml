@@ -50,8 +50,8 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 2222
-          timeout: 300s
-          command_timeout: 600s
+          timeout: 600s
+          command_timeout: 900s
           script: |
             # Explicitly source bash profile to load nvm
             source ~/.bash_profile
@@ -206,18 +206,36 @@ jobs:
             # Create log file in home directory
             touch "$LOG_FILE"
             
-            # Start the application in the background
-            nohup node dist/server/entry.mjs > "$LOG_FILE" 2>&1 &
-            SERVER_PID=$!
-            echo "Started server with PID: $SERVER_PID"
+            # Start the application in the background with better process management
+            echo "#!/bin/bash" > start_server.sh
+            echo "cd $DEPLOY_DIR" >> start_server.sh
+            echo "nohup node dist/server/entry.mjs > $LOG_FILE 2>&1 &" >> start_server.sh
+            echo "echo \$! > $HOME/integrator_frontend.pid" >> start_server.sh
+            chmod +x start_server.sh
+            
+            # Execute the start script
+            ./start_server.sh
+            sleep 2
+            
+            # Get the PID
+            if [ -f "$HOME/integrator_frontend.pid" ]; then
+              SERVER_PID=$(cat "$HOME/integrator_frontend.pid")
+              echo "Started server with PID: $SERVER_PID"
+            else
+              echo "Warning: Could not determine server PID"
+              SERVER_PID=""
+            fi
             
             echo "Waiting for server to start..."
-            sleep 10
+            sleep 15
             
-            # Check if process is still running
-            if ! kill -0 $SERVER_PID 2>/dev/null; then
-              echo "Server process died! Check logs:"
-              tail -50 "$LOG_FILE"
+            # Check PM2 status
+            pm2 status
+            
+            # Check if the application is running in PM2
+            if ! pm2 describe integrator-frontend &> /dev/null; then
+              echo "Application failed to start in PM2! Check logs:"
+              pm2 logs integrator-frontend --lines 20
               exit 1
             fi
             
@@ -243,8 +261,9 @@ jobs:
             
             echo "SSR deployment completed successfully at $(date)"
             echo "Application running in: $DEPLOY_DIR"
-            echo "Logs available at: $LOG_FILE"
-            echo "Server PID: $(pgrep -f 'node.*entry.mjs' || echo 'PID not found')"
+            echo "PM2 Status:"
+            pm2 status
+            echo "Logs available with: pm2 logs integrator-frontend"
             
       - name: Cleanup on VPS
         if: always()
@@ -262,6 +281,5 @@ jobs:
             
             # Show final status
             echo "Final application status:"
-            ps aux | grep -E "(node|integrator)" | grep -v grep || echo "No application processes found"
-            echo "Application directory: $HOME/apps/integrator_frontend_live"
-            echo "Log file: $HOME/integrator_frontend.log"
+            pm2 status
+            echo "View logs with: pm2 logs integrator-frontend"
