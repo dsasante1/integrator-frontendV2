@@ -32,31 +32,40 @@ jobs:
         run: npm run build
       - name: Debug build output
         run: |
-          echo "Listing contents of current directory:"
-          ls -la
-          echo "Checking if dist directory exists:"
-          ls -la dist/ || echo "dist directory not found"
-          echo "Searching for index.html in all directories:"
-          find . -name "index.html" -type f || echo "No index.html found"
-          echo "Listing all directories that might contain build output:"
-          find . -maxdepth 2 -type d -name "*build*" -o -name "*dist*" -o -name "*out*" -o -name "*public*" || echo "No common build directories found"
-      - name: Deploy integrator frontend
+          echo "Checking dist structure:"
+          ls -la dist/
+          echo "Checking dist/client contents:"
+          ls -la dist/client/ || echo "dist/client not found"
+          echo "Checking dist/server contents:"  
+          ls -la dist/server/ || echo "dist/server not found"
+          echo "Looking for HTML files in dist:"
+          find dist/ -name "*.html" -type f || echo "No HTML files found in dist"
+      - name: Deploy integrator frontend (SSR)
         run: |
           # Set error handling
           set -e
           echo "Creating temporary directory..."
           TEMP_DIR="/tmp/integrator_frontend-$(date +%s)"
           mkdir -p $TEMP_DIR
-          echo "Copying built files to temporary location..."
-          cp -r dist/* $TEMP_DIR/    # Changed from dist/app/* to dist/*
-          echo "Verifying index.html exists in temporary directory..."
-          if [ ! -f "$TEMP_DIR/index.html" ]; then
-            echo "Error: index.html not found in build output!"
-            exit 1
-          fi
+          
+          echo "Copying SSR application files..."
+          # Copy the entire dist directory for SSR
+          cp -r dist/ $TEMP_DIR/
+          # Copy package.json and package-lock.json for production dependencies
+          cp package.json package-lock.json $TEMP_DIR/
+          
+          echo "Installing production dependencies..."
+          cd $TEMP_DIR
+          npm ci --only=production
+          cd -
+          
           echo "Setting proper permissions..."
           sudo chown -R www-data:www-data $TEMP_DIR
           sudo chmod -R 755 $TEMP_DIR
+          
+          echo "Stopping existing application if running..."
+          sudo pkill -f "node.*integrator_frontend" || echo "No existing process found"
+          
           echo "Performing atomic deployment swap..."
           sudo -s <<EOF
           # Backup existing deployment if it exists
@@ -68,21 +77,27 @@ jobs:
           # Clean up old backups (keep last 2)
           cd /var/www && ls -td integrator_frontend-backup-* | tail -n +3 | xargs -r rm -rf
           EOF
+          
+          echo "Starting the application..."
+          cd /var/www/integrator_frontend
+          # Start the application in the background
+          sudo -u www-data nohup node dist/server/entry.mjs > /var/log/integrator_frontend.log 2>&1 &
+          
           echo "Verifying deployment..."
-          if [ ! -d "/var/www/integrator_frontend" ]; then
-            echo "Deployment directory does not exist!"
+          sleep 5
+          if ! pgrep -f "node.*entry.mjs" > /dev/null; then
+            echo "Application failed to start! Check logs:"
+            tail -20 /var/log/integrator_frontend.log
             exit 1
           fi
-          if [ ! -f "/var/www/integrator_frontend/index.html" ]; then
-            echo "index.html not found in deployment directory!"
+          
+          echo "Testing application response..."
+          if ! curl -f http://localhost:4321 > /dev/null 2>&1; then
+            echo "Application not responding on port 4321!"
             exit 1
           fi
-          echo "Testing file permissions..."
-          if ! sudo -u www-data test -r /var/www/integrator_frontend/index.html; then
-            echo "Permission test failed!"
-            exit 1
-          fi
-          echo "Deployment completed successfully at $(date)"
+          
+          echo "SSR deployment completed successfully at $(date)"
       - name: Cleanup
         if: always()
         run: |
