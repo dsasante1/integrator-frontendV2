@@ -14,6 +14,7 @@ jobs:
   build-and-deploy:
     if: github.event.pull_request.merged == true || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     steps:
       - name: Checkout code
@@ -23,16 +24,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20.x"
+          cache: 'npm'
           
-      - name: Cache npm dependencies
-        id: cache-npm
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-            
       - name: Install all dependencies
         run: npm ci
         
@@ -57,22 +50,46 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 2222
+          timeout: 300s
+          command_timeout: 600s
           script: |
-            # Set error handling
+            # Set error handling and debugging
             set -e
             echo "Starting deployment at $(date)"
             
-            # Navigate to application directory
-            cd /var/www/integrator_frontend || { echo "App directory not found"; exit 1; }
+            # Check if application directory exists, create if not
+            if [ ! -d "/var/www/integrator_frontend" ]; then
+              echo "Creating application directory..."
+              sudo mkdir -p /var/www/integrator_frontend
+              sudo chown -R $USER:$USER /var/www/integrator_frontend
+              cd /var/www/integrator_frontend
+              
+              echo "Cloning repository..."
+              git clone https://github.com/${{ github.repository }}.git .
+            else
+              echo "Application directory exists, navigating..."
+              cd /var/www/integrator_frontend
+            fi
+            
+            echo "Current directory: $(pwd)"
+            echo "Current user: $(whoami)"
             
             echo "Pulling latest changes..."
-            git pull origin master
+            git fetch origin
+            git reset --hard origin/master
             
             echo "Installing/updating dependencies..."
-            npm ci --only=production
+            npm ci --only=production --no-audit --no-fund
             
             echo "Building application on VPS..."
             npm run build
+            
+            echo "Verifying build output..."
+            if [ ! -d "dist" ]; then
+              echo "Build failed - no dist directory found!"
+              exit 1
+            fi
+            ls -la dist/
             
             echo "Creating temporary directory for atomic deployment..."
             TEMP_DIR="/tmp/integrator_frontend-$(date +%s)"
@@ -86,54 +103,92 @@ jobs:
             
             echo "Installing production dependencies in temp directory..."
             cd $TEMP_DIR
-            npm ci --only=production
+            npm ci --only=production --no-audit --no-fund
             cd /var/www/integrator_frontend
             
             echo "Setting proper permissions..."
             chmod -R 755 $TEMP_DIR
             
             echo "Stopping existing application if running..."
-            pkill -f "node.*integrator_frontend" || echo "No existing process found"
+            pkill -f "node.*integrator_frontend" || echo "No integrator_frontend process found"
+            pkill -f "node.*entry.mjs" || echo "No entry.mjs process found"
+            
+            # Wait for processes to fully stop
+            sleep 3
             
             echo "Performing atomic deployment swap..."
             DEPLOY_DIR="/var/www/integrator_frontend_live"
             
             # Backup existing deployment if it exists
             if [ -d "$DEPLOY_DIR" ]; then
-              sudo mv "$DEPLOY_DIR" "/var/www/integrator_frontend-backup-$(date +%s)"
+              BACKUP_DIR="/var/www/integrator_frontend-backup-$(date +%s)"
+              echo "Backing up current deployment to $BACKUP_DIR"
+              sudo mv "$DEPLOY_DIR" "$BACKUP_DIR"
             fi
             
             # Move new deployment into place
+            echo "Moving new deployment to $DEPLOY_DIR"
             sudo mv $TEMP_DIR $DEPLOY_DIR
             sudo chown -R $USER:$USER $DEPLOY_DIR
             
-            # Clean up old backups (keep last 2)
-            cd /var/www && sudo ls -td integrator_frontend-backup-* 2>/dev/null | tail -n +3 | xargs -r sudo rm -rf
+            # Clean up old backups (keep last 3)
+            cd /var/www
+            echo "Cleaning up old backups..."
+            sudo find . -maxdepth 1 -name "integrator_frontend-backup-*" -type d | sort -r | tail -n +4 | xargs -r sudo rm -rf
             
             echo "Starting the application..."
             cd $DEPLOY_DIR
             
+            # Verify required files exist
+            if [ ! -f "dist/server/entry.mjs" ]; then
+              echo "Error: entry.mjs not found!"
+              echo "Contents of dist/server/:"
+              ls -la dist/server/ || echo "dist/server directory not found"
+              exit 1
+            fi
+            
+            echo "Starting Node.js server..."
+            # Create log directory if it doesn't exist
+            sudo touch /var/log/integrator_frontend.log
+            sudo chown $USER:$USER /var/log/integrator_frontend.log
+            
             # Start the application in the background
             nohup node dist/server/entry.mjs > /var/log/integrator_frontend.log 2>&1 &
+            SERVER_PID=$!
+            echo "Started server with PID: $SERVER_PID"
             
-            echo "Verifying deployment..."
-            sleep 5
+            echo "Waiting for server to start..."
+            sleep 10
             
-            if ! pgrep -f "node.*entry.mjs" > /dev/null; then
-              echo "Application failed to start! Check logs:"
-              tail -20 /var/log/integrator_frontend.log || echo "Log file not found"
+            # Check if process is still running
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+              echo "Server process died! Check logs:"
+              tail -50 /var/log/integrator_frontend.log
               exit 1
             fi
             
+            # Test application response with retries
             echo "Testing application response..."
-            if ! curl -f http://localhost:4321 > /dev/null 2>&1; then
-              echo "Application not responding on port 4321!"
-              echo "Recent logs:"
-              tail -10 /var/log/integrator_frontend.log
-              exit 1
-            fi
+            for i in {1..5}; do
+              if curl -f -s http://localhost:4321 > /dev/null; then
+                echo "Application is responding successfully!"
+                break
+              else
+                echo "Attempt $i: Application not responding, waiting 5 seconds..."
+                if [ $i -eq 5 ]; then
+                  echo "Application failed to respond after 5 attempts!"
+                  echo "Recent logs:"
+                  tail -20 /var/log/integrator_frontend.log
+                  echo "Process status:"
+                  ps aux | grep node || echo "No node processes found"
+                  exit 1
+                fi
+                sleep 5
+              fi
+            done
             
             echo "SSR deployment completed successfully at $(date)"
+            echo "Server PID: $(pgrep -f 'node.*entry.mjs' || echo 'PID not found')"
             
       - name: Cleanup on VPS
         if: always()
@@ -142,7 +197,13 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: 22
+          port: 2222
+          timeout: 60s
           script: |
-            # Clean up temporary files if they exist
+            # Clean up temporary files
+            echo "Cleaning up temporary files..."
             sudo rm -rf /tmp/integrator_frontend-* || echo "No temp files to clean"
+            
+            # Show final status
+            echo "Final application status:"
+            ps aux | grep -E "(node|integrator)" | grep -v grep || echo "No application processes found"
