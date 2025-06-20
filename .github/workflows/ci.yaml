@@ -60,34 +60,33 @@ jobs:
           cd -
           
           echo "Setting proper permissions..."
-          sudo chown -R www-data:www-data $TEMP_DIR
-          sudo chmod -R 755 $TEMP_DIR
+          chmod -R 755 $TEMP_DIR
           
           echo "Stopping existing application if running..."
-          sudo pkill -f "node.*integrator_frontend" || echo "No existing process found"
+          pkill -f "node.*integrator_frontend" || echo "No existing process found"
           
           echo "Performing atomic deployment swap..."
-          sudo -s <<EOF
+          # Use a directory that doesn't require sudo access
+          DEPLOY_DIR="$HOME/integrator_frontend"
           # Backup existing deployment if it exists
-          if [ -d "/var/www/integrator_frontend" ]; then
-            mv /var/www/integrator_frontend "/var/www/integrator_frontend-backup-$(date +%s)"
+          if [ -d "$DEPLOY_DIR" ]; then
+            mv "$DEPLOY_DIR" "$HOME/integrator_frontend-backup-$(date +%s)"
           fi
           # Move new deployment into place
-          mv $TEMP_DIR /var/www/integrator_frontend
+          mv $TEMP_DIR $DEPLOY_DIR
           # Clean up old backups (keep last 2)
-          cd /var/www && ls -td integrator_frontend-backup-* | tail -n +3 | xargs -r rm -rf
-          EOF
+          cd $HOME && ls -td integrator_frontend-backup-* | tail -n +3 | xargs -r rm -rf
           
           echo "Starting the application..."
-          cd /var/www/integrator_frontend
+          cd $DEPLOY_DIR
           # Start the application in the background
-          sudo -u www-data nohup node dist/server/entry.mjs > /var/log/integrator_frontend.log 2>&1 &
+          nohup node dist/server/entry.mjs > $HOME/integrator_frontend.log 2>&1 &
           
           echo "Verifying deployment..."
           sleep 5
           if ! pgrep -f "node.*entry.mjs" > /dev/null; then
             echo "Application failed to start! Check logs:"
-            tail -20 /var/log/integrator_frontend.log
+            tail -20 $HOME/integrator_frontend.log || echo "Log file not found"
             exit 1
           fi
           
