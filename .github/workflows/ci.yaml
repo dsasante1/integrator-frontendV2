@@ -1,4 +1,5 @@
 name: integrator_frontend
+
 on:
   pull_request:
     types:
@@ -8,16 +9,21 @@ on:
   push:
     branches:
       - master
+
 jobs:
   build-and-deploy:
     if: github.event.pull_request.merged == true || github.event_name == 'push'
-    runs-on: integrator_frontend
+    runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20.x"
+          
       - name: Cache npm dependencies
         id: cache-npm
         uses: actions/cache@v3
@@ -26,10 +32,13 @@ jobs:
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
+            
       - name: Install dependencies
         run: npm ci
-      - name: Build
+        
+      - name: Build application
         run: npm run build
+        
       - name: Debug build output
         run: |
           echo "Checking dist structure:"
@@ -40,65 +49,100 @@ jobs:
           ls -la dist/server/ || echo "dist/server not found"
           echo "Looking for HTML files in dist:"
           find dist/ -name "*.html" -type f || echo "No HTML files found in dist"
-      - name: Deploy integrator frontend (SSR)
-        run: |
-          # Set error handling
-          set -e
-          echo "Creating temporary directory..."
-          TEMP_DIR="/tmp/integrator_frontend-$(date +%s)"
-          mkdir -p $TEMP_DIR
           
-          echo "Copying SSR application files..."
-          # Copy the entire dist directory for SSR
-          cp -r dist/ $TEMP_DIR/
-          # Copy package.json and package-lock.json for production dependencies
-          cp package.json package-lock.json $TEMP_DIR/
-          
-          echo "Installing production dependencies..."
-          cd $TEMP_DIR
-          npm ci --only=production
-          cd -
-          
-          echo "Setting proper permissions..."
-          chmod -R 755 $TEMP_DIR
-          
-          echo "Stopping existing application if running..."
-          pkill -f "node.*integrator_frontend" || echo "No existing process found"
-          
-          echo "Performing atomic deployment swap..."
-          # Use a directory that doesn't require sudo access
-          DEPLOY_DIR="$HOME/integrator_frontend"
-          # Backup existing deployment if it exists
-          if [ -d "$DEPLOY_DIR" ]; then
-            mv "$DEPLOY_DIR" "$HOME/integrator_frontend-backup-$(date +%s)"
-          fi
-          # Move new deployment into place
-          mv $TEMP_DIR $DEPLOY_DIR
-          # Clean up old backups (keep last 2)
-          cd $HOME && ls -td integrator_frontend-backup-* | tail -n +3 | xargs -r rm -rf
-          
-          echo "Starting the application..."
-          cd $DEPLOY_DIR
-          # Start the application in the background
-          nohup node dist/server/entry.mjs > $HOME/integrator_frontend.log 2>&1 &
-          
-          echo "Verifying deployment..."
-          sleep 5
-          if ! pgrep -f "node.*entry.mjs" > /dev/null; then
-            echo "Application failed to start! Check logs:"
-            tail -20 $HOME/integrator_frontend.log || echo "Log file not found"
-            exit 1
-          fi
-          
-          echo "Testing application response..."
-          if ! curl -f http://localhost:4321 > /dev/null 2>&1; then
-            echo "Application not responding on port 4321!"
-            exit 1
-          fi
-          
-          echo "SSR deployment completed successfully at $(date)"
-      - name: Cleanup
+      - name: Deploy integrator frontend (SSR) to VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            # Set error handling
+            set -e
+            echo "Starting deployment at $(date)"
+            
+            # Navigate to application directory
+            cd /var/www/integrator_frontend || { echo "App directory not found"; exit 1; }
+            
+            echo "Pulling latest changes..."
+            git pull origin master
+            
+            echo "Installing/updating dependencies..."
+            npm ci --only=production
+            
+            echo "Building application on VPS..."
+            npm run build
+            
+            echo "Creating temporary directory for atomic deployment..."
+            TEMP_DIR="/tmp/integrator_frontend-$(date +%s)"
+            mkdir -p $TEMP_DIR
+            
+            echo "Copying application files to temp directory..."
+            # Copy the entire dist directory for SSR
+            cp -r dist/ $TEMP_DIR/
+            # Copy package files for production dependencies
+            cp package.json package-lock.json $TEMP_DIR/
+            
+            echo "Installing production dependencies in temp directory..."
+            cd $TEMP_DIR
+            npm ci --only=production
+            cd /var/www/integrator_frontend
+            
+            echo "Setting proper permissions..."
+            chmod -R 755 $TEMP_DIR
+            
+            echo "Stopping existing application if running..."
+            pkill -f "node.*integrator_frontend" || echo "No existing process found"
+            
+            echo "Performing atomic deployment swap..."
+            DEPLOY_DIR="/var/www/integrator_frontend_live"
+            
+            # Backup existing deployment if it exists
+            if [ -d "$DEPLOY_DIR" ]; then
+              sudo mv "$DEPLOY_DIR" "/var/www/integrator_frontend-backup-$(date +%s)"
+            fi
+            
+            # Move new deployment into place
+            sudo mv $TEMP_DIR $DEPLOY_DIR
+            sudo chown -R $USER:$USER $DEPLOY_DIR
+            
+            # Clean up old backups (keep last 2)
+            cd /var/www && sudo ls -td integrator_frontend-backup-* 2>/dev/null | tail -n +3 | xargs -r sudo rm -rf
+            
+            echo "Starting the application..."
+            cd $DEPLOY_DIR
+            
+            # Start the application in the background
+            nohup node dist/server/entry.mjs > /var/log/integrator_frontend.log 2>&1 &
+            
+            echo "Verifying deployment..."
+            sleep 5
+            
+            if ! pgrep -f "node.*entry.mjs" > /dev/null; then
+              echo "Application failed to start! Check logs:"
+              tail -20 /var/log/integrator_frontend.log || echo "Log file not found"
+              exit 1
+            fi
+            
+            echo "Testing application response..."
+            if ! curl -f http://localhost:4321 > /dev/null 2>&1; then
+              echo "Application not responding on port 4321!"
+              echo "Recent logs:"
+              tail -10 /var/log/integrator_frontend.log
+              exit 1
+            fi
+            
+            echo "SSR deployment completed successfully at $(date)"
+            
+      - name: Cleanup on VPS
         if: always()
-        run: |
-          # Clean up temporary files if they exist
-          rm -rf /tmp/integrator_frontend-*
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            # Clean up temporary files if they exist
+            sudo rm -rf /tmp/integrator_frontend-* || echo "No temp files to clean"
