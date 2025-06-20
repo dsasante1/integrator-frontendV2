@@ -59,6 +59,43 @@ jobs:
             echo "Current user: $(whoami)"
             echo "Home directory: $HOME"
             
+            # Check if Node.js and npm are available
+            echo "Checking Node.js and npm availability..."
+            if ! command -v node &> /dev/null; then
+              echo "ERROR: Node.js is not installed or not in PATH"
+              exit 1
+            fi
+            
+            if ! command -v npm &> /dev/null; then
+              echo "ERROR: npm is not installed or not in PATH"
+              echo "Please reinstall Node.js with npm"
+              exit 1
+            fi
+            
+            # Check Node.js version
+            echo "Checking Node.js version..."
+            node --version
+            npm --version
+            
+            # Verify Node.js version meets requirements
+            NODE_VERSION=$(node --version | cut -d'v' -f2)
+            REQUIRED_MAJOR=18
+            REQUIRED_MINOR=20
+            REQUIRED_PATCH=8
+            
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$NODE_VERSION"
+            
+            if [ "$MAJOR" -lt "$REQUIRED_MAJOR" ] || 
+               ([ "$MAJOR" -eq "$REQUIRED_MAJOR" ] && [ "$MINOR" -lt "$REQUIRED_MINOR" ]) ||
+               ([ "$MAJOR" -eq "$REQUIRED_MAJOR" ] && [ "$MINOR" -eq "$REQUIRED_MINOR" ] && [ "$PATCH" -lt "$REQUIRED_PATCH" ]); then
+              echo "ERROR: Node.js version $NODE_VERSION is not supported!"
+              echo "Required: >= ${REQUIRED_MAJOR}.${REQUIRED_MINOR}.${REQUIRED_PATCH}"
+              echo "Please upgrade Node.js on your VPS"
+              exit 1
+            fi
+            
+            echo "Node.js and npm checks passed ✓"
+            
             # Use home directory instead of /var/www to avoid sudo
             APP_BASE="$HOME/apps"
             APP_DIR="$APP_BASE/integrator_frontend"
