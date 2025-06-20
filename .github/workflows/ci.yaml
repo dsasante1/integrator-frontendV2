@@ -235,7 +235,7 @@ jobs:
             echo "Logs available at: $LOG_FILE"
             echo "Server PID: $(pgrep -f 'node.*entry.mjs' || echo 'PID not found')"
             
-      - name: Cleanup on VPS
+      - name: Cleanup on vps
         if: always()
         uses: appleboy/ssh-action@v1.0.0
         with:
