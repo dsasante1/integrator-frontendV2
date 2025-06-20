@@ -53,32 +53,43 @@ jobs:
           timeout: 300s
           command_timeout: 600s
           script: |
+            # Explicitly source bash profile to load nvm
+            source ~/.bash_profile
+            
             # Set error handling and debugging
             set -e
             echo "Starting deployment at $(date)"
             echo "Current user: $(whoami)"
             echo "Home directory: $HOME"
             
-            # Check if Node.js and npm are available
-            echo "Checking Node.js and npm availability..."
-            if ! command -v node &> /dev/null; then
-              echo "ERROR: Node.js is not installed or not in PATH"
-              exit 1
+            # Load nvm if it exists
+            echo "Loading nvm environment..."
+            export NVM_DIR="$HOME/.nvm"
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              source "$NVM_DIR/nvm.sh"
+              echo "nvm loaded successfully"
             fi
             
-            if ! command -v npm &> /dev/null; then
-              echo "ERROR: npm is not installed or not in PATH"
-              echo "Please reinstall Node.js with npm"
+            # Try using node/npm directly (should work after sourcing profile)
+            echo "Checking Node.js and npm availability..."
+            if command -v node &> /dev/null && command -v npm &> /dev/null; then
+              NODE_PATH=$(which node)
+              NPM_PATH=$(which npm)
+              echo "Found Node.js in PATH: $NODE_PATH"
+              echo "Found npm in PATH: $NPM_PATH"
+            else
+              echo "ERROR: Node.js or npm not found after loading nvm"
+              echo "Current PATH: $PATH"
               exit 1
             fi
             
             # Check Node.js version
             echo "Checking Node.js version..."
-            node --version
-            npm --version
+            NODE_VERSION=$(node --version | cut -d'v' -f2)
+            echo "Node.js version: v$NODE_VERSION"
+            echo "npm version: $(npm --version)"
             
             # Verify Node.js version meets requirements
-            NODE_VERSION=$(node --version | cut -d'v' -f2)
             REQUIRED_MAJOR=18
             REQUIRED_MINOR=20
             REQUIRED_PATCH=8
@@ -191,6 +202,25 @@ jobs:
               exit 1
             fi
             
+            echo "Starting Node.js server..."
+            # Create log file in home directory
+            touch "$LOG_FILE"
+            
+            # Start the application in the background
+            nohup node dist/server/entry.mjs > "$LOG_FILE" 2>&1 &
+            SERVER_PID=$!
+            echo "Started server with PID: $SERVER_PID"
+            
+            echo "Waiting for server to start..."
+            sleep 10
+            
+            # Check if process is still running
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+              echo "Server process died! Check logs:"
+              tail -50 "$LOG_FILE"
+              exit 1
+            fi
+            
             # Test application response with retries
             echo "Testing application response..."
             for i in {1..5}; do
@@ -216,7 +246,7 @@ jobs:
             echo "Logs available at: $LOG_FILE"
             echo "Server PID: $(pgrep -f 'node.*entry.mjs' || echo 'PID not found')"
             
-      - name: Cleanup on vps
+      - name: Cleanup on VPS
         if: always()
         uses: appleboy/ssh-action@v1.0.0
         with:
