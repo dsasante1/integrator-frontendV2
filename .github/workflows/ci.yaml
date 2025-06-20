@@ -33,7 +33,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-
             
-      - name: Install dependencies
+      - name: Install all dependencies
         run: npm ci
         
       - name: Build application
