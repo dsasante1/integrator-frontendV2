@@ -457,13 +457,11 @@ export const DisplaySnapshotDiff: React.FC<DisplaySnapshotDiffProps> = ({
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-2xl">{getResourceIcon(selectedChange.resource_type)}</span>
                         <h3 className="text-xl font-semibold text-gray-900">
-                          {selectedChange.human_path}
+                          {selectedChange.endpoint_name}
                         </h3>
                       </div>
                       
                       <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <span>{selectedChange.endpoint_name || 'Collection Level'}</span>
-                        <span>•</span>
                         <span className="capitalize">{selectedChange.resource_type}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1">

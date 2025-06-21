@@ -35,6 +35,8 @@ interface Change {
   path: string;
   human_path: string;
   created_at: string;
+  modification: string;
+  endpoint_name: string;
 }
 
 interface Summary {
@@ -557,8 +559,8 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
                           {change.change_type}
                         </span>
                         <div className="flex-1">
-                          <div className="font-medium text-gray-900">{change.path || 'Unknown path'}</div>
-                          <div className="text-sm text-gray-600">{change.human_path || 'Unknown human path'}</div>
+                          <div className="font-medium text-gray-900">{change.endpoint_name || 'Unknown endpoint'}</div>
+                          <div className="text-sm text-gray-600">{change.modification || 'Unknown content'}</div>
                           <div className="text-xs text-gray-500 mt-1">{formatTimestamp(change.created_at)}</div>
                         </div>
                       </div>
