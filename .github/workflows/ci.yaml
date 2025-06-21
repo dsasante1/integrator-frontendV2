@@ -50,8 +50,8 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 2222
-          timeout: 600s
-          command_timeout: 900s
+          timeout: 300s
+          command_timeout: 600s
           script: |
             # Explicitly source bash profile to load nvm
             source ~/.bash_profile
@@ -136,10 +136,10 @@ jobs:
             git reset --hard origin/master
             
             echo "Installing/updating dependencies..."
-            npm ci --omit=dev --no-audit --no-fund
+            timeout 300 npm ci --omit=dev --no-audit --no-fund
             
             echo "Building application on VPS..."
-            npm run build
+            timeout 300 npm run build
             
             echo "Verifying build output..."
             if [ ! -d "dist" ]; then
