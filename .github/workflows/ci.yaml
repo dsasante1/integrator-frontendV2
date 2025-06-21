@@ -1,339 +1,37 @@
-name: integrator_frontend
+name: deployment ci
 
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - master
   push:
-    branches:
-      - master
+    branches: [master]
 
 jobs:
-  build-and-deploy:
-    if: github.event.pull_request.merged == true || github.event_name == 'push'
+  deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # Increased timeout
+    timeout-minutes: 10
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20.x"
-          cache: 'npm'
-          
-      - name: Install all dependencies
-        run: npm ci
-        
-      - name: Build application
-        run: npm run build
-        
-      - name: Debug build output
-        run: |
-          echo "Checking dist structure:"
-          ls -la dist/
-          echo "Checking dist/client contents:"
-          ls -la dist/client/ || echo "dist/client not found"
-          echo "Checking dist/server contents:"  
-          ls -la dist/server/ || echo "dist/server not found"
-          echo "Looking for HTML files in dist:"
-          find dist/ -name "*.html" -type f || echo "No HTML files found in dist"
-          
-      - name: Deploy integrator frontend (SSR) to VPS
+      - name: Build and send to VPS
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 2222
-          timeout: 600s  # Increased timeout
-          command_timeout: 900s  # Increased command timeout
+          timeout: 60s
           script: |
-            # Explicitly source bash profile to load nvm
+            # One-liner deployment
+            cd ~/apps/integrator_frontend || { 
+              mkdir -p ~/apps/integrator_frontend && 
+              cd ~/apps/integrator_frontend && 
+              git clone https://github.com/${{ github.repository }}.git .; 
+            }
+            
+            # Quick update and deploy
             source ~/.bash_profile
-            
-            # Set error handling and debugging
-            set -e
-            echo "Starting deployment at $(date)"
-            echo "Current user: $(whoami)"
-            echo "Home directory: $HOME"
-            
-            # Load nvm if it exists
-            echo "Loading nvm environment..."
-            export NVM_DIR="$HOME/.nvm"
-            if [ -s "$NVM_DIR/nvm.sh" ]; then
-              source "$NVM_DIR/nvm.sh"
-              echo "nvm loaded successfully"
-            fi
-            
-            # Try using node/npm directly (should work after sourcing profile)
-            echo "Checking Node.js and npm availability..."
-            if command -v node &> /dev/null && command -v npm &> /dev/null; then
-              NODE_PATH=$(which node)
-              NPM_PATH=$(which npm)
-              echo "Found Node.js in PATH: $NODE_PATH"
-              echo "Found npm in PATH: $NPM_PATH"
-            else
-              echo "ERROR: Node.js or npm not found after loading nvm"
-              echo "Current PATH: $PATH"
-              exit 1
-            fi
-            
-            # Check Node.js version
-            echo "Checking Node.js version..."
-            NODE_VERSION=$(node --version | cut -d'v' -f2)
-            echo "Node.js version: v$NODE_VERSION"
-            echo "npm version: $(npm --version)"
-            
-            # Verify Node.js version meets requirements
-            REQUIRED_MAJOR=18
-            REQUIRED_MINOR=20
-            REQUIRED_PATCH=8
-            
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$NODE_VERSION"
-            
-            if [ "$MAJOR" -lt "$REQUIRED_MAJOR" ] || 
-               ([ "$MAJOR" -eq "$REQUIRED_MAJOR" ] && [ "$MINOR" -lt "$REQUIRED_MINOR" ]) ||
-               ([ "$MAJOR" -eq "$REQUIRED_MAJOR" ] && [ "$MINOR" -eq "$REQUIRED_MINOR" ] && [ "$PATCH" -lt "$REQUIRED_PATCH" ]); then
-              echo "ERROR: Node.js version $NODE_VERSION is not supported!"
-              echo "Required: >= ${REQUIRED_MAJOR}.${REQUIRED_MINOR}.${REQUIRED_PATCH}"
-              echo "Please upgrade Node.js on your VPS"
-              exit 1
-            fi
-            
-            echo "Node.js and npm checks passed ✓"
-            
-            # Use home directory instead of /var/www to avoid sudo
-            APP_BASE="$HOME/apps"
-            APP_DIR="$APP_BASE/integrator_frontend"
-            DEPLOY_DIR="$APP_BASE/integrator_frontend_live"
-            LOG_FILE="$HOME/integrator_frontend.log"
-            
-            # Create base apps directory
-            mkdir -p "$APP_BASE"
-            
-            # Check if application directory exists, create if not
-            if [ ! -d "$APP_DIR" ]; then
-              echo "Creating application directory at $APP_DIR..."
-              mkdir -p "$APP_DIR"
-              cd "$APP_DIR"
-              
-              echo "Cloning repository..."
-              git clone https://github.com/${{ github.repository }}.git .
-            else
-              echo "Application directory exists, navigating..."
-              cd "$APP_DIR"
-            fi
-            
-            echo "Current directory: $(pwd)"
-            
-            echo "Pulling latest changes..."
-            git fetch origin
-            git reset --hard origin/master
-            
-            echo "Installing/updating dependencies..."
-            timeout 400 npm ci --omit=dev --no-audit --no-fund --progress=false
-            
-            echo "Building application on VPS..."
-            timeout 400 npm run build
-            
-            echo "Verifying build output..."
-            if [ ! -d "dist" ]; then
-              echo "Build failed - no dist directory found!"
-              exit 1
-            fi
-            ls -la dist/
-            
-            echo "Creating temporary directory for atomic deployment..."
-            TEMP_DIR="/tmp/integrator_frontend-$(date +%s)"
-            mkdir -p "$TEMP_DIR"
-            
-            echo "Copying application files to temp directory..."
-            # Copy the entire dist directory for SSR
-            cp -r dist/ "$TEMP_DIR/"
-            # Copy package files for production dependencies
-            cp package.json package-lock.json "$TEMP_DIR/"
-            
-            echo "Installing production dependencies in temp directory..."
-            cd "$TEMP_DIR"
-            timeout 400 npm ci --omit=dev --no-audit --no-fund --progress=false
-            cd "$APP_DIR"
-            
-            echo "Setting proper permissions..."
-            chmod -R 755 "$TEMP_DIR"
-            
-            echo "Gracefully stopping existing application..."
-            # Stop PM2 process if it exists with proper wait time
-            if pm2 describe integrator-frontend &> /dev/null; then
-              echo "Stopping PM2 process gracefully..."
-              pm2 stop integrator-frontend || echo "Failed to stop PM2 process"
-              sleep 5  # Wait for graceful shutdown
-              pm2 delete integrator-frontend || echo "Failed to delete PM2 process"
-            else
-              echo "No PM2 process 'integrator-frontend' found"
-            fi
-            
-            # Also stop any manual processes as backup
-            pkill -f "node.*integrator_frontend" || echo "No integrator_frontend process found"
-            pkill -f "node.*entry.mjs" || echo "No entry.mjs process found"
-            
-            # Wait for processes to fully stop
-            echo "Waiting for processes to fully stop..."
-            sleep 10
-            
-            echo "Performing atomic deployment swap..."
-            
-            # Backup existing deployment if it exists
-            if [ -d "$DEPLOY_DIR" ]; then
-              BACKUP_DIR="$APP_BASE/integrator_frontend-backup-$(date +%s)"
-              echo "Backing up current deployment to $BACKUP_DIR"
-              mv "$DEPLOY_DIR" "$BACKUP_DIR"
-            fi
-            
-            # Move new deployment into place
-            echo "Moving new deployment to $DEPLOY_DIR"
-            mv "$TEMP_DIR" "$DEPLOY_DIR"
-            
-            # Clean up old backups (keep last 3)
-            cd "$APP_BASE"
-            echo "Cleaning up old backups..."
-            find . -maxdepth 1 -name "integrator_frontend-backup-*" -type d | sort -r | tail -n +4 | xargs -r rm -rf
-            
-            echo "Starting the application with PM2..."
-            cd "$DEPLOY_DIR"
-            
-            # Verify required files exist
-            if [ ! -f "dist/server/entry.mjs" ]; then
-              echo "Error: entry.mjs not found!"
-              echo "Contents of dist/server/:"
-              ls -la dist/server/ || echo "dist/server directory not found"
-              exit 1
-            fi
-            
-            # Create PM2 ecosystem file with improved configuration
-            cat > ecosystem.config.js << 'EOF'
-            module.exports = {
-              apps: [{
-                name: 'integrator-frontend',
-                script: './dist/server/entry.mjs',
-                instances: 1,
-                exec_mode: 'fork',
-                watch: false,
-                max_memory_restart: '1G',
-                kill_timeout: 5000,
-                wait_ready: true,
-                listen_timeout: 10000,
-                env: {
-                  NODE_ENV: 'production',
-                  PORT: 4321
-                },
-                log_file: '$HOME/integrator_frontend.log',
-                out_file: '$HOME/integrator_frontend.log',
-                error_file: '$HOME/integrator_frontend.log',
-                merge_logs: true,
-                time: true,
-                autorestart: true,
-                max_restarts: 10,
-                min_uptime: '10s'
-              }]
-            };
-            EOF
-            
-            # Replace $HOME with actual path in ecosystem config
-            sed -i "s|\$HOME|$HOME|g" ecosystem.config.js
-            
-            echo "Starting application with PM2..."
-            pm2 start ecosystem.config.js --no-daemon --silent
-            
-            echo "Waiting for server to initialize..."
-            sleep 15
-            
-            # Check PM2 status
-            echo "PM2 Status:"
-            pm2 status
-            
-            # Check if the application is running in PM2
-            if ! pm2 describe integrator-frontend &> /dev/null; then
-              echo "Application failed to start in PM2! Check logs:"
-              pm2 logs integrator-frontend --lines 30
-              exit 1
-            fi
-            
-            # Test application response with retries and better error handling
-            echo "Testing application response..."
-            APP_STARTED=false
-            for i in {1..15}; do
-              if curl -f -s -m 10 http://localhost:4321 > /dev/null 2>&1; then
-                echo "Application is responding successfully!"
-                APP_STARTED=true
-                break
-              else
-                echo "Attempt $i/15: Application not responding, waiting 5 seconds..."
-                if [ $i -eq 15 ]; then
-                  echo "Application failed to respond after 15 attempts!"
-                  echo "Recent logs:"
-                  pm2 logs integrator-frontend --lines 30
-                  echo "PM2 process status:"
-                  pm2 describe integrator-frontend
-                  exit 1
-                fi
-                sleep 5
-              fi
-            done
-            
-            if [ "$APP_STARTED" = true ]; then
-              # Save PM2 configuration for auto-restart on reboot
-              pm2 save
-              
-              echo "SSR deployment completed successfully at $(date)"
-              echo "Application running in: $DEPLOY_DIR"
-              echo "PM2 Status:"
-              pm2 status
-              echo "Logs available with: pm2 logs integrator-frontend"
-              echo "To monitor: pm2 monit"
-            else
-              echo "Deployment failed - application not responding"
-              exit 1
-            fi
-            
-      - name: Verify deployment
-        if: success()
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 2222
-          timeout: 60s
-          script: |
-            echo "Final deployment verification:"
-            pm2 status
-            echo "Testing final application response:"
-            if curl -f -s -m 10 http://localhost:4321 > /dev/null; then
-              echo "✅ Application is running and responding"
-            else
-              echo "❌ Application is not responding"
-              pm2 logs integrator-frontend --lines 20
-            fi
-            
-      - name: Cleanup on VPS
-        if: always()
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 2222
-          timeout: 60s
-          script: |
-            # Clean up temporary files
-            echo "Cleaning up temporary files..."
-            rm -rf /tmp/integrator_frontend-* || echo "No temp files to clean"
-            
-            # Show final status
-            echo "Final application status:"
-            pm2 status || echo "PM2 not available or no processes running"
+            git pull origin master
+            npm ci --silent
+            npm run build
+            pm2 restart integrator-frontend || pm2 start dist/server/entry.mjs --name integrator-frontend
+            pm2 save
