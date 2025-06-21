@@ -1,4 +1,4 @@
-name: deployment ci
+name: deployment_ci_fixed
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         
-      - name: Build and send to VPS
+      - name: Deploy to correct directory
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -21,17 +21,23 @@ jobs:
           port: 2222
           timeout: 60s
           script: |
-            # One-liner deployment
-            cd ~/apps/integrator_frontend || { 
-              mkdir -p ~/apps/integrator_frontend && 
-              cd ~/apps/integrator_frontend && 
+            # Deploy to the LIVE directory (where PM2 is actually running from)
+            cd ~/apps/integrator_frontend_live || { 
+              mkdir -p ~/apps/integrator_frontend_live && 
+              cd ~/apps/integrator_frontend_live && 
               git clone https://github.com/${{ github.repository }}.git .; 
             }
+            
+            echo "📁 Deploying to: $(pwd)"
             
             # Quick update and deploy
             source ~/.bash_profile
             git pull origin master
             npm ci --silent
             npm run build
-            pm2 restart integrator-frontend || pm2 start dist/server/entry.mjs --name integrator-frontend
+            
+            # Restart the application (it's already configured to run from this directory)
+            pm2 restart integrator-frontend
             pm2 save
+            
+            echo "✅ Deployment completed - website content should now be updated!"
