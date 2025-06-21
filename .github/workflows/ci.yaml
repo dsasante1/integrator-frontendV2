@@ -136,7 +136,7 @@ jobs:
             git reset --hard origin/master
             
             echo "Installing/updating dependencies..."
-            npm ci --only=production --no-audit --no-fund
+            npm ci --omit=dev --no-audit --no-fund
             
             echo "Building application on VPS..."
             npm run build
@@ -160,13 +160,18 @@ jobs:
             
             echo "Installing production dependencies in temp directory..."
             cd "$TEMP_DIR"
-            npm ci --only=production --no-audit --no-fund
+            npm ci --omit=dev --no-audit --no-fund
             cd "$APP_DIR"
             
             echo "Setting proper permissions..."
             chmod -R 755 "$TEMP_DIR"
             
             echo "Stopping existing application if running..."
+            # Stop PM2 process if it exists
+            pm2 stop integrator-frontend 2>/dev/null || echo "No PM2 process 'integrator-frontend' found"
+            pm2 delete integrator-frontend 2>/dev/null || echo "No PM2 process 'integrator-frontend' to delete"
+            
+            # Also stop any manual processes as backup
             pkill -f "node.*integrator_frontend" || echo "No integrator_frontend process found"
             pkill -f "node.*entry.mjs" || echo "No entry.mjs process found"
             
@@ -191,7 +196,7 @@ jobs:
             echo "Cleaning up old backups..."
             find . -maxdepth 1 -name "integrator_frontend-backup-*" -type d | sort -r | tail -n +4 | xargs -r rm -rf
             
-            echo "Starting the application..."
+            echo "Starting the application with PM2..."
             cd "$DEPLOY_DIR"
             
             # Verify required files exist
@@ -202,34 +207,40 @@ jobs:
               exit 1
             fi
             
-            echo "Starting Node.js server..."
-            # Create log file in home directory
-            touch "$LOG_FILE"
+            # Create PM2 ecosystem file
+            cat > ecosystem.config.js << 'EOF'
+            module.exports = {
+              apps: [{
+                name: 'integrator-frontend',
+                script: './dist/server/entry.mjs',
+                instances: 1,
+                exec_mode: 'fork',
+                watch: false,
+                max_memory_restart: '1G',
+                env: {
+                  NODE_ENV: 'production',
+                  PORT: 4321
+                },
+                log_file: '$HOME/integrator_frontend.log',
+                out_file: '$HOME/integrator_frontend.log',
+                error_file: '$HOME/integrator_frontend.log',
+                merge_logs: true,
+                time: true
+              }]
+            };
+            EOF
             
-            # Start the application in the background with better process management
-            echo "#!/bin/bash" > start_server.sh
-            echo "cd $DEPLOY_DIR" >> start_server.sh
-            echo "nohup node dist/server/entry.mjs > $LOG_FILE 2>&1 &" >> start_server.sh
-            echo "echo \$! > $HOME/integrator_frontend.pid" >> start_server.sh
-            chmod +x start_server.sh
+            # Replace $HOME with actual path in ecosystem config
+            sed -i "s|\$HOME|$HOME|g" ecosystem.config.js
             
-            # Execute the start script
-            ./start_server.sh
-            sleep 2
-            
-            # Get the PID
-            if [ -f "$HOME/integrator_frontend.pid" ]; then
-              SERVER_PID=$(cat "$HOME/integrator_frontend.pid")
-              echo "Started server with PID: $SERVER_PID"
-            else
-              echo "Warning: Could not determine server PID"
-              SERVER_PID=""
-            fi
+            echo "Starting application with PM2..."
+            pm2 start ecosystem.config.js
             
             echo "Waiting for server to start..."
-            sleep 15
+            sleep 10
             
             # Check PM2 status
+            echo "PM2 Status:"
             pm2 status
             
             # Check if the application is running in PM2
@@ -241,29 +252,34 @@ jobs:
             
             # Test application response with retries
             echo "Testing application response..."
-            for i in {1..5}; do
+            for i in {1..10}; do
               if curl -f -s http://localhost:4321 > /dev/null; then
                 echo "Application is responding successfully!"
                 break
               else
                 echo "Attempt $i: Application not responding, waiting 5 seconds..."
-                if [ $i -eq 5 ]; then
-                  echo "Application failed to respond after 5 attempts!"
+                if [ $i -eq 10 ]; then
+                  echo "Application failed to respond after 10 attempts!"
                   echo "Recent logs:"
-                  tail -20 "$LOG_FILE"
-                  echo "Process status:"
-                  ps aux | grep node || echo "No node processes found"
+                  pm2 logs integrator-frontend --lines 20
+                  echo "PM2 process status:"
+                  pm2 describe integrator-frontend
                   exit 1
                 fi
                 sleep 5
               fi
             done
             
+            # Save PM2 configuration for auto-restart on reboot
+            pm2 save
+            pm2 startup
+            
             echo "SSR deployment completed successfully at $(date)"
             echo "Application running in: $DEPLOY_DIR"
             echo "PM2 Status:"
             pm2 status
             echo "Logs available with: pm2 logs integrator-frontend"
+            echo "To monitor: pm2 monit"
             
       - name: Cleanup on VPS
         if: always()
@@ -281,5 +297,5 @@ jobs:
             
             # Show final status
             echo "Final application status:"
-            pm2 status
+            pm2 status || echo "PM2 not available or no processes running"
             echo "View logs with: pm2 logs integrator-frontend"
