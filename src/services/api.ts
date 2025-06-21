@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { AxiosError, AxiosResponse } from 'axios';
 
-export const BASE_URL = 'http://localhost:8080/integrator/api/v1';
+export const BASE_URL = 'https://integrator-api.verbgh.com/api/v1';
 
 interface SnapshotDiffParams {
   pageSize?: number;
