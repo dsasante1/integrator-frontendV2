@@ -21,10 +21,10 @@ jobs:
           port: 2222
           timeout: 60s
           script: |
-            # Deploy to the LIVE directory (where PM2 is actually running from)
-            cd ~/apps/integrator_frontend_live || { 
-              mkdir -p ~/apps/integrator_frontend_live && 
-              cd ~/apps/integrator_frontend_live && 
+            # Deploy to the main directory (where the code actually exists)
+            cd ~/apps/integrator_frontend || { 
+              mkdir -p ~/apps/integrator_frontend && 
+              cd ~/apps/integrator_frontend && 
               git clone https://github.com/${{ github.repository }}.git .; 
             }
             
@@ -36,8 +36,12 @@ jobs:
             npm ci --silent
             npm run build
             
-            # Restart the application (it's already configured to run from this directory)
-            pm2 restart integrator-frontend
+            # Stop the old process (it's pointing to wrong directory)
+            pm2 stop integrator-frontend 2>/dev/null || true
+            pm2 delete integrator-frontend 2>/dev/null || true
+            
+            # Start fresh from current directory
+            pm2 start dist/server/entry.mjs --name integrator-frontend --env NODE_ENV=production --env PORT=4321
             pm2 save
             
-            echo "✅ Deployment completed - website content should now be updated!"
+            echo "✅ Deployment completed - PM2 now running from correct directory!"
