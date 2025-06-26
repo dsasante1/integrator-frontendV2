@@ -99,9 +99,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<number | null>(null);
   const [currentView, setCurrentView] = useState<'summary' |'history'| 'timeline' | 'hierarchy' | 'impact' | 'compare'>('summary');
-  const [diffData, setDiffData] = useState<DiffResponse | null>(null);
-  const [diffLoading, setDiffLoading] = useState(false);
-  const [diffError, setDiffError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,13 +137,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       case 'impact':
         loadImpactAnalysis();
         break;
-      case 'history':
-        if (selectedSnapshotId) {
-          loadSnapshotDiff(selectedSnapshotId);
-        } else {
-          setDiffData(null);
-        }
-        break;
     }
   }, [currentView, selectedSnapshotId]);
 
@@ -171,20 +161,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       setSelectedSnapshotId(null);
     } finally {
       setFetchingSnapshot(false);
-    }
-  };
-
-  const loadSnapshotDiff = async (snapshotId: number, params?: SnapshotDiffParams) => {
-    setDiffLoading(true);
-    setDiffError(null);
-    try {
-      const data = await changesService.getSnapshotDiff(collectionId, snapshotId, params);
-      setDiffData(data || null);
-    } catch (err) {
-      setDiffError('Failed to load snapshot changes. This might be the first snapshot.');
-      setDiffData(null);
-    } finally {
-      setDiffLoading(false);
     }
   };
 

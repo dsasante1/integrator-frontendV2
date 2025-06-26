@@ -110,53 +110,56 @@ export const DisplaySnapshotDiff: React.FC<DisplaySnapshotDiffProps> = ({
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const fetchDiffData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-
-      if(!snapshotId){
-          setError('No snapshots available for this collection');
-          return
-      }
-
-      const params = new URLSearchParams({
-        search: debouncedSearchTerm,
-        filter_type: filterType,
-        group_by: groupBy,
-        page: page.toString(),
-        page_size: pageSize.toString(),
-      });
-      
-      const response = await changesService.getSnapshotDiff(collectionId, snapshotId, params);
-      
-      if (!response) {
-        throw new Error('Failed to fetch diff data');
-      }
-      
-      setDiffData(response);
-      
-      if (!selectedChange && response.changes.length > 0) {
-        setSelectedChange(response.changes[0]);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
+const fetchDiffData = useCallback(async () => {
+  setLoading(true);
+  setError(null);
+  
+  try {
+    if(!snapshotId){
+        setError('No snapshots available for this collection');
+        return
     }
-  }, [collectionId, snapshotId, debouncedSearchTerm, filterType, groupBy, page, pageSize, selectedChange]);
 
-  // Fetch data when parameters change
-  useEffect(() => {
-    fetchDiffData();
-  }, [fetchDiffData]);
+    const params = new URLSearchParams({
+      search: debouncedSearchTerm,
+      filter_type: filterType,
+      group_by: groupBy,
+      page: page.toString(),
+      page_size: pageSize.toString(),
+    });
+    
+    const response = await changesService.getSnapshotDiff(collectionId, snapshotId, params);
+    
+    if (!response) {
+      throw new Error('Failed to fetch diff data');
+    }
+    
+    setDiffData(response);
+    
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'An error occurred');
+  } finally {
+    setLoading(false);
+  }
+}, [collectionId, snapshotId, debouncedSearchTerm, filterType, groupBy, page, pageSize]);
 
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearchTerm, filterType, groupBy]);
 
+useEffect(() => {
+  fetchDiffData();
+}, [fetchDiffData]);
+
+
+useEffect(() => {
+  if (diffData && diffData.changes.length > 0 && !selectedChange) {
+    setSelectedChange(diffData.changes[0]);
+  }
+}, [diffData, selectedChange]);
+
+
+useEffect(() => {
+  setSelectedChange(null);
+  setPage(1);
+}, [debouncedSearchTerm, filterType, groupBy]);
   const getChangeIcon = useCallback((type: string) => {
     switch (type) {
       case 'added': return <Plus className="h-4 w-4 text-green-600" />;
@@ -177,11 +180,12 @@ export const DisplaySnapshotDiff: React.FC<DisplaySnapshotDiffProps> = ({
 
   const getResourceIcon = useCallback((type: string) => {
     switch (type) {
-      case 'request': return '📤';
-      case 'response': return '📥';
-      case 'endpoint': return '🔗';
-      case 'collection': return '📁';
-      default: return '📄';
+    case 'request': return '📨';     
+    case 'response': return '📬';    
+    case 'endpoint': return '🌐';     
+    case 'collection': return '🗂️';  
+    default: return '📄';         
+
     }
   }, []);
 
