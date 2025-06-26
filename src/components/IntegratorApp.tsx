@@ -5,8 +5,8 @@ import { X, CheckCircle, XCircle, Info, AlertTriangle, Upload, Key, Settings, Ba
 import { useAuth } from '../contexts/AuthContext';
 import { collectionService, apiKeyService } from '../services/api';
 import LoginForm from './LoginForm';
+import ImportCollection from './ImportCollections';
 
-// Types
 interface Collection {
   id: string;
   user_id: string;
@@ -490,83 +490,11 @@ const IntegratorApp: React.FC = () => {
 
         {/* Import Tab */}
         {activeTab === 'import' && (
-          <section>
-            <div className="bg-white rounded-lg shadow p-8">
-              <h2 className="text-xl font-semibold mb-6">Import Postman Collection</h2>
-
-              {/* File Upload Section */}
-              <div className="mb-8">
-                <p className="text-gray-600 mb-4">Upload a Postman collection JSON file to import it into the system.</p>
-                <form onSubmit={e => { e.preventDefault(); handleUpload(); }} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Collection File</label>
-                    <input
-                      type="file"
-                      onChange={handleFileSelect}
-                      accept=".json"
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                  </div>
-                  {selectedFile && (
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-600">Selected file: <span className="font-medium">{selectedFile.name}</span></p>
-                    </div>
-                  )}
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={!selectedFile || isLoading}
-                      className="btn btn-primary flex items-center"
-                    >
-                      {isLoading && <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>}
-                      <span>{isLoading ? 'Importing...' : 'Import Collection'}</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Import from Postman API */}
-              <div className="border-t border-gray-200 pt-8 mt-8">
-                <h2 className="text-xl font-semibold mb-6">Available Collections</h2>
-                <p className="text-gray-600 mb-4">Browse and import collections from your Postman API keys.</p>
-
-                {/* API Key Selection */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select API Key</label>
-                  <select
-                    value={apiKeys.find(k => k.default)?.name || ''}
-                    onChange={e => {/* TODO: handle API key change */}}
-                    className="form-input"
-                  >
-                    <option value="">Choose an API key</option>
-                    {apiKeys.map(key => (
-                      <option key={key.name} value={key.name}>
-                        {key.name}{key.default ? ' (Default)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Collections Loading */}
-                {/* TODO: Add isFetchingCollections state */}
-                {/* <div className="text-center py-8">...</div> */}
-
-                {/* No API Key Selected */}
-                {/* TODO: Add selectedKeyName state */}
-                {/* <div className="text-center py-8">...</div> */}
-
-                {/* Collections Grid */}
-                {/* TODO: Add postmanCollections, selectedCollectionIds, and related logic */}
-                {/* <div>...</div> */}
-
-                {/* No Collections Found */}
-                {/* <div className="text-center py-8">...</div> */}
-              </div>
-
-              {/* Import Status Messages */}
-              {/* TODO: Add importStatus, importError, and related logic */}
-            </div>
-          </section>
+          <ImportCollection isLoading={false} setIsLoading={function (loading: boolean): void {
+            throw new Error('Function not implemented.');
+          } } addNotification={function (type: 'success' | 'error' | 'info' | 'warning', message: string): void {
+            throw new Error('Function not implemented.');
+          } } />
         )}
         {/* Settings Tab */}
         {activeTab === 'settings' && (

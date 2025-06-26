@@ -10,18 +10,15 @@ interface SnapshotDiffParams {
   sortOrder?: string;
 }
 
-// Create axios instance with default config
+
 const api = axios.create({
   baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  // Add retry configuration
-  retry: 3,
-  retryDelay: (retryCount: number) => retryCount * 1000,
 });
 
-// Add request interceptor to add auth token
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('user_auth_token');
   if (token) {
@@ -30,38 +27,37 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Add response interceptor for error handling
+
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config;
     
-    // Handle 401 Unauthorized errors
+
     if (error.response?.status === 401) {
       localStorage.removeItem('user_auth_token');
       window.location.href = '/';
       return Promise.reject(error);
     }
 
-    // Handle 429 Too Many Requests
+
     if (error.response?.status === 429) {
       const retryAfter = error.response.headers['retry-after'];
       await new Promise(resolve => setTimeout(resolve, (parseInt(retryAfter) || 60) * 1000));
       return api(originalRequest!);
     }
 
-    // Handle network errors
+   
     if (!error.response) {
       return Promise.reject(new Error('Network error. Please check your connection.'));
     }
 
-    // Handle other errors
     const errorMessage = error.response.data?.message || error.message || 'An error occurred';
     return Promise.reject(new Error(errorMessage));
   }
 );
 
-// Auth services
+
 export const authService = {
   signup: async (email: string, password: string) => {
     const response = await api.post('/signup', { email, password });
@@ -80,7 +76,7 @@ export const authService = {
   },
 };
 
-// API Key services
+
 export const apiKeyService = {
   saveApiKey: async (apiKey: string) => {
     const response = await api.post('/api-key', { api_key: apiKey });
