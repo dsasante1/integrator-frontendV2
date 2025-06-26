@@ -1,11 +1,10 @@
-
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, CheckCircle, XCircle, Info, AlertTriangle, Upload, Key, Settings, BarChart3, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { collectionService, apiKeyService } from '../services/api';
 import LoginForm from './LoginForm';
-import ImportCollection from './ImportCollections';
+import ImportCollection, { type ImportCollectionRef } from './ImportCollections';
 
 interface Collection {
   id: string;
@@ -139,6 +138,13 @@ const IntegratorApp: React.FC = () => {
   const [dropdownPosition, setDropdownPosition] = React.useState<{[key: string]: {top: number, left: number}}>({});
   const actionButtonRefs = React.useRef<{[key: string]: HTMLButtonElement | null}>({});
 
+  // API Keys form state
+  const [newKey, setNewKey] = React.useState({ name: '', key: '', setDefault: false });
+  const [isAddingKey, setIsAddingKey] = React.useState(false);
+
+  // Ref for ImportCollection component
+  const importCollectionRef = useRef<ImportCollectionRef>(null);
+
   const toggleActions = (collectionId: string, event: React.MouseEvent<HTMLButtonElement>) => {
     const button = event.currentTarget;
     const rect = button.getBoundingClientRect();
@@ -172,6 +178,13 @@ const IntegratorApp: React.FC = () => {
     }
   }, [isAuthenticated]);
 
+  // Fetch collections when switching to collections tab
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'collections') {
+      fetchCollections();
+    }
+  }, [activeTab, isAuthenticated]);
+
   const fetchCollections = async () => {
     setIsLoading(true);
     try {
@@ -198,49 +211,16 @@ const IntegratorApp: React.FC = () => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // Handle file selection
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      addNotification('info', `Selected file: ${file.name}`);
-    }
-  };
-
-  // Handle file upload
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      addNotification('error', 'Please select a file first');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const content = JSON.parse(e.target?.result as string);
-          const response = await collectionService.saveCollection(content.info._postman_id, content.info.name);
-          addNotification('success', 'Collection imported successfully');
-          setSelectedFile(null);
-          // Refresh collections list
-          setCollections(prev => [...prev, {
-            id: content.info._postman_id,
-            name: content.info.name,
-            user_id: '',  // This will be set by the server
-            first_seen: new Date().toISOString(),
-            last_seen: new Date().toISOString()
-          }]);
-        } catch (error) {
-          addNotification('error', 'Failed to import collection');
-        }
-      };
-      reader.readAsText(selectedFile);
-    } catch (error) {
-      addNotification('error', 'Failed to process file');
-    } finally {
-      setIsLoading(false);
-    }
+  // Handle collection imported callback
+  const handleCollectionImported = (collection: Collection) => {
+    setCollections(prev => {
+      // Check if collection already exists
+      const exists = prev.some(c => c.id === collection.id);
+      if (exists) {
+        return prev; // Don't add duplicate
+      }
+      return [...prev, collection];
+    });
   };
 
   // Handle collection selection
@@ -281,15 +261,29 @@ const IntegratorApp: React.FC = () => {
   };
 
   // Handle API key management
-  const handleApiKeyAdd = async (apiKey: string) => {
+  const handleApiKeyAdd = async (event: React.FormEvent) => {
+    event.preventDefault();
+    
+    if (!newKey.name.trim() || !newKey.key.trim()) {
+      addNotification('error', 'Please fill in all fields');
+      return;
+    }
+
+    setIsAddingKey(true);
     try {
-      await apiKeyService.saveApiKey(apiKey);
+      await apiKeyService.saveApiKey(newKey.key);
       addNotification('success', 'API key added successfully');
+      
+      // Reset form
+      setNewKey({ name: '', key: '', setDefault: false });
+      
       // Refresh API keys list
       const keys = await apiKeyService.getApiKeys();
       setApiKeys(keys);
     } catch (error) {
       addNotification('error', 'Failed to add API key');
+    } finally {
+      setIsAddingKey(false);
     }
   };
 
@@ -319,6 +313,16 @@ const IntegratorApp: React.FC = () => {
       fetchApiKeys();
     }
   }, [isAuthenticated]);
+
+  // Trigger fetch when Import tab becomes active
+  useEffect(() => {
+    if (activeTab === 'import' && importCollectionRef.current) {
+      // Small delay to ensure component is fully mounted
+      setTimeout(() => {
+        importCollectionRef.current?.fetchPostmanCollections();
+      }, 100);
+    }
+  }, [activeTab]);
 
   if (authLoading) {
     return (
@@ -388,7 +392,17 @@ const IntegratorApp: React.FC = () => {
         {activeTab === 'collections' && (
           <section>
             <div className="bg-white rounded-lg shadow p-8">
-              <h2 className="text-xl font-semibold mb-6">Collection Snapshots</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Collection Snapshots</h2>
+                <button
+                  onClick={fetchCollections}
+                  disabled={isLoading}
+                  className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-md shadow transition-colors duration-200 flex items-center"
+                >
+                  {isLoading && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+                  <span>{isLoading ? 'Refreshing...' : 'Refresh'}</span>
+                </button>
+              </div>
 
               {/* Loading State */}
               {isLoading && (
@@ -407,7 +421,10 @@ const IntegratorApp: React.FC = () => {
                   <h3 className="mt-2 text-sm font-medium text-gray-900">No collections found</h3>
                   <p className="mt-1 text-sm text-gray-500">Use the Import tab to fetch collections.</p>
                   <div className="mt-6">
-                    <button onClick={() => setActiveTab('import')} className="btn btn-primary">
+                    <button 
+                      onClick={() => setActiveTab('import')} 
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200"
+                    >
                       Import Collections
                     </button>
                   </div>
@@ -490,12 +507,15 @@ const IntegratorApp: React.FC = () => {
 
         {/* Import Tab */}
         {activeTab === 'import' && (
-          <ImportCollection isLoading={false} setIsLoading={function (loading: boolean): void {
-            throw new Error('Function not implemented.');
-          } } addNotification={function (type: 'success' | 'error' | 'info' | 'warning', message: string): void {
-            throw new Error('Function not implemented.');
-          } } />
+          <ImportCollection 
+            ref={importCollectionRef}
+            isLoading={isLoading} 
+            setIsLoading={setIsLoading} 
+            addNotification={addNotification}
+            onCollectionImported={handleCollectionImported}
+          />
         )}
+
         {/* Settings Tab */}
         {activeTab === 'settings' && (
           <section>
@@ -568,16 +588,17 @@ const IntegratorApp: React.FC = () => {
               {/* Add New API Key */}
               <div className="border-t border-gray-200 pt-8">
                 <h3 className="text-lg font-medium mb-3">Add New API Key</h3>
-                <form onSubmit={e => { e.preventDefault(); /* TODO: add API key */ }} className="space-y-4">
+                <form onSubmit={handleApiKeyAdd} className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label htmlFor="key-name" className="block text-sm font-medium text-gray-700 mb-1">Key Name</label>
                       <input
                         type="text"
                         id="key-name"
-                        // value and onChange for newKey.name
+                        value={newKey.name}
+                        onChange={(e) => setNewKey(prev => ({ ...prev, name: e.target.value }))}
                         placeholder="e.g., Work, Personal"
-                        className="form-input"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                       <p className="mt-1 text-xs text-gray-500">A name to identify this API key</p>
@@ -587,9 +608,10 @@ const IntegratorApp: React.FC = () => {
                       <input
                         type="password"
                         id="api-key"
-                        // value and onChange for newKey.key
+                        value={newKey.key}
+                        onChange={(e) => setNewKey(prev => ({ ...prev, key: e.target.value }))}
                         placeholder="PMAK-xxxx..."
-                        className="form-input"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                       <p className="mt-1 text-xs text-gray-500">Your Postman API key from your Postman account</p>
@@ -599,7 +621,8 @@ const IntegratorApp: React.FC = () => {
                     <input
                       type="checkbox"
                       id="set-default"
-                      // checked and onChange for newKey.setDefault
+                      checked={newKey.setDefault}
+                      onChange={(e) => setNewKey(prev => ({ ...prev, setDefault: e.target.checked }))}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <label htmlFor="set-default" className="ml-2 block text-sm text-gray-700">Set as default key</label>
@@ -607,11 +630,11 @@ const IntegratorApp: React.FC = () => {
                   <div>
                     <button
                       type="submit"
-                      // disabled logic for isAddingKey, newKey.name, newKey.key
-                      className="btn btn-primary flex items-center"
+                      disabled={isAddingKey || !newKey.name.trim() || !newKey.key.trim()}
+                      className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 flex items-center"
                     >
-                      {/* isAddingKey spinner */}
-                      <span>Add API Key</span>
+                      {isAddingKey && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+                      <span>{isAddingKey ? 'Adding...' : 'Add API Key'}</span>
                     </button>
                   </div>
                 </form>

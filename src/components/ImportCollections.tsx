@@ -1,20 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { collectionService } from '../services/api';
 
-// Types
 interface Collection {
   id: string;
   user_id: string;
   name: string;
   first_seen: string;
   last_seen: string;
-}
-
-interface ApiKey {
-  name: string;
-  key: string;
-  default: boolean;
 }
 
 interface PostmanCollection {
@@ -28,22 +21,28 @@ interface ImportCollectionProps {
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
   addNotification: (type: 'success' | 'error' | 'info' | 'warning', message: string) => void;
+  onCollectionImported?: (collection: Collection) => void;
 }
 
-const ImportCollection: React.FC<ImportCollectionProps> = ({
-  isLoading,
-  setIsLoading,
-  addNotification,
-}) => {
+export interface ImportCollectionRef {
+  fetchPostmanCollections: () => Promise<void>;
+  refreshCollections: () => Promise<void>;
+}
+
+const ImportCollection = forwardRef<ImportCollectionRef, ImportCollectionProps>((props, ref) => {
+  const {
+    isLoading,
+    setIsLoading,
+    addNotification,
+    onCollectionImported,
+  } = props;
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
   const [postmanCollections, setPostmanCollections] = useState<PostmanCollection[]>([]);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<Set<string>>(new Set());
   const [isFetchingCollections, setIsFetchingCollections] = useState(false);
   const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
   const [importError, setImportError] = useState<string>('');
-
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -52,7 +51,6 @@ const ImportCollection: React.FC<ImportCollectionProps> = ({
       addNotification('info', `Selected file: ${file.name}`);
     }
   };
-
 
   const handleUpload = async () => {
     if (!selectedFile) {
@@ -76,33 +74,41 @@ const ImportCollection: React.FC<ImportCollectionProps> = ({
           addNotification('success', 'Collection imported successfully');
           setSelectedFile(null);
           
+          if (onCollectionImported) {
+            const newCollection: Collection = {
+              id: content.info._postman_id,
+              name: content.info.name,
+              user_id: '', 
+              first_seen: new Date().toISOString(),
+              last_seen: new Date().toISOString()
+            };
+            onCollectionImported(newCollection);
+          }
+          
         } catch (error) {
-          console.error('Import error:', error);
+
           addNotification('error', 'Failed to import collection');
         }
       };
       reader.readAsText(selectedFile);
     } catch (error) {
-      console.error('File processing error:', error);
+
       addNotification('error', 'Failed to process file');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Fetch collections
   const fetchPostmanCollections = async () => {
-  
-
     setIsFetchingCollections(true);
+    setImportError('');
     try {
-
       const collections = await collectionService.getCollections();
-      console.log('collection details -->>', collections);
       setPostmanCollections(collections);
     } catch (error) {
-      console.error('Failed to fetch collections:', error);
-      addNotification('error', 'Failed to fetch collections from Postman API');
+
+      const errorMessage = 'Failed to fetch collections from Postman API';
+      setImportError(errorMessage);
       setPostmanCollections([]);
     } finally {
       setIsFetchingCollections(false);
@@ -110,7 +116,6 @@ const ImportCollection: React.FC<ImportCollectionProps> = ({
   };
 
 
-  // Handle collection selection for bulk import
   const handleCollectionToggle = (collectionId: string) => {
     const newSelected = new Set(selectedCollectionIds);
     if (newSelected.has(collectionId)) {
@@ -121,17 +126,130 @@ const ImportCollection: React.FC<ImportCollectionProps> = ({
     setSelectedCollectionIds(newSelected);
   };
 
+  const handleBulkImport = async () => {
+    if (selectedCollectionIds.size === 0) {
+      addNotification('warning', 'Please select at least one collection to import');
+      return;
+    }
+
+    setImportStatus('importing');
+    setIsLoading(true);
+    
+    try {
+      const selectedCollections = postmanCollections.filter(col => 
+        selectedCollectionIds.has(col.id)
+      );
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const collection of selectedCollections) {
+        try {
+          await collectionService.saveCollection(collection.id, collection.name);
+          successCount++;
+          
+          if (onCollectionImported) {
+            const newCollection: Collection = {
+              id: collection.id,
+              name: collection.name,
+              user_id: '',
+              first_seen: new Date().toISOString(),
+              last_seen: new Date().toISOString()
+            };
+            onCollectionImported(newCollection);
+          }
+        } catch (error) {
+          errorCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        addNotification('success', 
+          `Successfully imported ${successCount} collection${successCount > 1 ? 's' : ''}`
+        );
+      }
+      
+      if (errorCount > 0) {
+        addNotification('error', 
+          `Failed to import ${errorCount} collection${errorCount > 1 ? 's' : ''}`
+        );
+      }
+      
+
+      setSelectedCollectionIds(new Set());
+      setImportStatus(errorCount === 0 ? 'success' : 'error');
+      
+    } catch (error) {
+      addNotification('error', 'Failed to import selected collections');
+      setImportStatus('error');
+    } finally {
+      setIsLoading(false);
+ 
+      setTimeout(() => setImportStatus('idle'), 3000);
+    }
+  };
+
+
+  useImperativeHandle(ref, () => ({
+    fetchPostmanCollections,
+    refreshCollections: fetchPostmanCollections
+  }));
+
+
+  useEffect(() => {
+    fetchPostmanCollections();
+  }, []);
 
   return (
     <section>
       <div className="bg-white rounded-lg shadow p-8">
         <h2 className="text-xl font-semibold mb-6">Import API Collections</h2>
+        {/* TODO from the backend */}
+        {/* File Upload Section */}
+        {/* <div className="mb-8">
+          <h3 className="text-lg font-medium mb-4">Upload Collection File</h3>
+          <p className="text-sm text-gray-600 mb-4">Upload a Postman collection JSON file to import it into the system.</p>
+          <form onSubmit={e => { e.preventDefault(); handleUpload(); }} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Collection File</label>
+              <input
+                type="file"
+                onChange={handleFileSelect}
+                accept=".json"
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+            </div>
+            {selectedFile && (
+              <div className="mt-2">
+                <p className="text-sm text-gray-600">Selected file: <span className="font-medium">{selectedFile.name}</span></p>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={!selectedFile || isLoading}
+                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 flex items-center"
+              >
+                {isLoading && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+                <span>{isLoading ? 'Importing...' : 'Import Collection'}</span>
+              </button>
+            </div>
+          </form>
+        </div> */}
 
         {/* Import from Postman API */}
-        <div className="border-t border-gray-200 pt-8 mt-8">
-          <h2 className="text-xl font-semibold mb-6">Available Collections</h2>
-         
-
+        <div className="border-t border-gray-200 pt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-medium">Available Collections from Postman API</h3>
+            <button
+              onClick={fetchPostmanCollections}
+              disabled={isFetchingCollections}
+              className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-md shadow transition-colors duration-200 flex items-center"
+            >
+              {isFetchingCollections && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+              <span>{isFetchingCollections ? 'Fetching...' : 'Refresh Collections'}</span>
+            </button>
+          </div>
 
           {/* Collections Loading */}
           {isFetchingCollections && (
@@ -142,7 +260,7 @@ const ImportCollection: React.FC<ImportCollectionProps> = ({
           )}
 
           {/* Collections Grid */}
-          { !isFetchingCollections && postmanCollections.length > 0 && (
+          {!isFetchingCollections && postmanCollections.length > 0 && (
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-sm text-gray-600">
@@ -151,6 +269,7 @@ const ImportCollection: React.FC<ImportCollectionProps> = ({
                 </p>
                 {selectedCollectionIds.size > 0 && (
                   <button
+                    onClick={handleBulkImport}
                     disabled={importStatus === 'importing'}
                     className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 flex items-center"
                   >
@@ -182,7 +301,10 @@ const ImportCollection: React.FC<ImportCollectionProps> = ({
                       <input
                         type="checkbox"
                         checked={selectedCollectionIds.has(collection.id)}
-                        onChange={() => handleCollectionToggle(collection.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleCollectionToggle(collection.id);
+                        }}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                     </div>
@@ -193,65 +315,28 @@ const ImportCollection: React.FC<ImportCollectionProps> = ({
           )}
 
           {/* No Collections Found */}
-          { !isFetchingCollections && postmanCollections.length === 0 && (
+          {!isFetchingCollections && postmanCollections.length === 0 && !importError && (
             <div className="text-center py-8">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">No collections found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                No collections found.
-              </p>
-              <button
-                onClick={fetchPostmanCollections}
-                className="mt-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                Refresh Collections
-              </button>
+              <p className="mt-1 text-sm text-gray-500">Try refreshing or check your API key configuration.</p>
             </div>
           )}
 
           {/* Import Status Messages */}
-          {importStatus === 'error' && importError && (
+          {importError && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
               <p className="text-sm text-red-800">{importError}</p>
             </div>
           )}
         </div>
-        <br />
-          {/* File Upload Section */}
-        {/* <div className="mb-8">
-          <p className="text-xl font-semibold mb-6">Upload a Postman collection JSON file to import it into the system.</p>
-          <form onSubmit={e => { e.preventDefault(); handleUpload(); }} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Collection File</label>
-              <input
-                type="file"
-                onChange={handleFileSelect}
-                accept=".json"
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-            </div>
-            {selectedFile && (
-              <div className="mt-2">
-                <p className="text-sm text-gray-600">Selected file: <span className="font-medium">{selectedFile.name}</span></p>
-              </div>
-            )}
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={!selectedFile || isLoading}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 flex items-center"
-              >
-                {isLoading && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
-                <span>{isLoading ? 'Importing...' : 'Import Collection'}</span>
-              </button>
-            </div>
-          </form>
-        </div> */}
       </div>
     </section>
   );
-};
+});
+
+ImportCollection.displayName = 'ImportCollection';
 
 export default ImportCollection;

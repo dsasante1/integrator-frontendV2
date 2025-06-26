@@ -166,7 +166,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
         setError('No snapshots available for this collection');
       }
     } catch (err) {
-      console.error('Failed to load collection snapshots:', err);
       setError('Failed to load collection snapshots');
       setSnapshot([]);
       setSelectedSnapshotId(null);
@@ -182,7 +181,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       const data = await changesService.getSnapshotDiff(collectionId, snapshotId, params);
       setDiffData(data || null);
     } catch (err) {
-      console.error('Failed to load snapshot diff:', err);
       setDiffError('Failed to load snapshot changes. This might be the first snapshot.');
       setDiffData(null);
     } finally {
@@ -195,7 +193,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       const data = await changesService.getSummary(collectionId);
       setSummary(data || null);
     } catch (err) {
-      console.error('Failed to load summary:', err);
       setError('Failed to load summary');
       setSummary(null);
     }
@@ -212,7 +209,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       const data = await changesService.getChanges(collectionId);
       setChanges(Array.isArray(data?.changes) ? data.changes : []);
     } catch (err) {
-      console.error('Failed to load changes:', err);
       setError('Failed to load changes');
       setChanges([]);
     } finally {
@@ -234,7 +230,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       const data = await changesService.getHierarchy(collectionId, selectedSnapshotId);
       setHierarchy(data || null);
     } catch (err) {
-      console.error('Failed to load hierarchy:', err);
       setError('Failed to load hierarchy');
       setHierarchy(null);
     }
@@ -249,7 +244,6 @@ export const ChangesDashboard: React.FC<{ collectionId: string }> = ({ collectio
       const data = await changesService.getImpactAnalysis(collectionId, selectedSnapshotId);
       setImpactData(data || null);
     } catch (err) {
-      console.error('Failed to load impact analysis:', err);
       setError('Failed to load impact analysis');
       setImpactData(null);
     }
